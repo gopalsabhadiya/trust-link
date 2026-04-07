@@ -1,0 +1,60 @@
+---
+description: Universal product context, vision, and core business logic for TrustLink
+globs: **/*
+alwaysApply: true
+---
+
+# TrustLink | Product Context & Source of Truth
+------------------------
+## 1. Product Overview
+**TrustLink** is the decentralized "Trust Layer" for the global workforce. It uses Self-Sovereign Identity (SSI) and blockchain technology to transform professional history into immutable, cryptographically verifiable assets.
+
+## 2. Vision & Description
+- **Vision:** TrustLink isn't just another document locker; it is the Trust Layer for the global workforce. Currently, professional identities are "siloed" in dusty HR databases and forgeable PDFs. TrustLink breaks these silos using SSI, empowering individuals to carry their verified career (promotions, salary hikes, degrees) in a private digital wallet.
+- **Description:** In a world of 'experience inflation' and resume fraud, TrustLink is the decentralized protocol that turns professional history into an immutable asset. We eliminate the 14-day background check and replace it with a 1-second cryptographic proof, giving ownership back to the employee and saving companies millions in administrative 'dead time.'
+
+## 3. Problem Statement
+
+### A. The Core Problem: The Failure of Manual Verification
+Traditional Background Verification (BGV) is a 20th-century solution to a 21st-century problem, broken in four ways:
+i. **The Integrity Deficit (Resume Lie Crisis):** 
+   - *Stat:* In 2026, nearly 40% of resumes in India contain inflated or fake data.
+   - *Impact:* "Bad Hires" cost companies 30–50% of the employee’s annual salary.
+ii. **The Efficiency Tax (Speed-to-Hire Barrier):** 
+   - *Stat:* BGV takes 7–14 days and costs ₹1,500–₹8,000 per candidate.
+   - *Impact:* Top talent is often "ghosted" or lost to faster competitors while BGV is pending.
+iii. **The Compliance Nightmare (DPDP Act Liability):** 
+   - *Stat:* The Digital Personal Data Protection (DPDP) Act 2023 is fully enforceable with fines up to ₹250 crore.
+   - *Impact:* HR departments store "data bombs" (unencrypted PDFs/scans) they have no legal basis to keep.
+iv. **The Administrative Sinkhole (HR Phone Tag):** 
+   - *Impact:* HR teams waste 40–60 hours/month responding to verification requests.
+
+### B. Summary & "Why Now?"
+The global recruitment infrastructure is paralyzed. In 2026, AI-generated resumes and deepfakes make manual verification impossible to scale. Trust must be "baked in" at the source.
+
+**The Transition:**
+- **Static PDFs** ➔ **Verifiable Credentials**
+- **14-Day Delays** ➔ **1-Second API Calls**
+- **Data Liability** ➔ **Sovereign Ownership**
+
+## 4. Core Value Pillars
+
+### A. For the Enterprise: From "Checking" to "Knowing"
+- **Instant Verification API:** Move from offer letter to onboarding in days, not weeks.
+- **Zero Data Liability:** Verify data without storing sensitive original files, ensuring DPDP compliance.
+- **End the Administrative Tax:** Automate 100% of incoming verification requests via the protocol.
+
+### B. For the Candidate: Own Your Truth
+- **Instant Portability:** Verified credentials follow the user across borders and industries.
+- **Selective Disclosure:** Prove specific data (e.g., tenure/salary) without revealing the entire private history.
+- **Privacy by Design:** Total control over who sees data, for how long, and for what purpose.
+
+### C. For the Market: The Death of the Fake Resume
+TrustLink creates a "Proof of Work" for the real world. By anchoring hashes on a decentralized ledger, resume fraud becomes mathematically impossible, enabling global trust across disparate geographies.
+
+---
+
+## AI Agent Instructions
+- **Context Awareness:** When drafting features, always prioritize the "3-Role" model: **Issuer** (HR), **Holder** (Candidate), and **Verifier** (Recruiter).
+- **Privacy First:** All data-related code must respect the DPDP Act principles outlined in the Compliance Nightmare section.
+- **Zero-Knowledge Preference:** Favor proofs over data transfers whenever a verification requirement can be met without revealing PII.

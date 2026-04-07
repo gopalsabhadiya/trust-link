@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  HR
+  CANDIDATE
+  RECRUITER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issuedCredentials   VerifiableCredential[] @relation("Issuer")
+  heldCredentials     VerifiableCredential[] @relation("Holder")
+  verificationsSent   VerificationRequest[]  @relation("Verifier")
+  verificationsReceived VerificationRequest[] @relation("VerificationHolder")
+
+  @@map("users")
+}
+
+model VerifiableCredential {
+  id        String    @id @default(cuid())
+  issuerId  String
+  holderId  String
+  type      String
+  claims    Json
+  issuedAt  DateTime  @default(now())
+  expiresAt DateTime?
+  revoked   Boolean   @default(false)
+
+  issuer    User      @relation("Issuer", fields: [issuerId], references: [id])
+  holder    User      @relation("Holder", fields: [holderId], references: [id])
+  requests  VerificationRequest[]
+
+  @@map("verifiable_credentials")
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model VerificationRequest {
+  id           String             @id @default(cuid())
+  verifierId   String
+  holderId     String
+  credentialId String
+  status       VerificationStatus @default(PENDING)
+  requestedAt  DateTime           @default(now())
+  resolvedAt   DateTime?
+
+  verifier   User                 @relation("Verifier", fields: [verifierId], references: [id])
+  holder     User                 @relation("VerificationHolder", fields: [holderId], references: [id])
+  credential VerifiableCredential @relation(fields: [credentialId], references: [id])
+
+  @@map("verification_requests")
+}
