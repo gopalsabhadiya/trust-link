@@ -10,7 +10,7 @@ import { SocialLoginButtons } from "./social-login-buttons";
 import { useAuth } from "../hooks/use-auth";
 
 export function LoginForm() {
-  const { login, isLoading, error, clearError } = useAuth();
+  const { login, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -33,15 +33,6 @@ export function LoginForm() {
       <Separator label="or" className="my-6" />
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {error && (
-          <div
-            role="alert"
-            className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </div>
-        )}
-
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="login-email">Email</Label>
           <Input
@@ -49,10 +40,7 @@ export function LoginForm() {
             type="email"
             placeholder="you@company.com"
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              clearError();
-            }}
+            onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
           />
@@ -65,6 +53,7 @@ export function LoginForm() {
               href="#"
               className="text-xs text-brand-blue hover:underline"
               tabIndex={-1}
+              onClick={(e) => e.preventDefault()}
             >
               Forgot password?
             </a>
@@ -74,19 +63,20 @@ export function LoginForm() {
             type="password"
             placeholder="Enter your password"
             value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              clearError();
-            }}
+            onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
           />
         </div>
 
         <p className="text-xs leading-relaxed text-muted-foreground">
-          By signing in, you acknowledge that TrustLink processes your credentials
-          under the DPDP Act, 2023. See our{" "}
-          <a href="#" className="text-brand-blue underline hover:text-brand-navy">
+          By signing in, you acknowledge that TrustLink processes your credentials under
+          the DPDP Act, 2023. See our{" "}
+          <a
+            href="#"
+            className="text-brand-blue underline hover:text-brand-navy"
+            onClick={(e) => e.preventDefault()}
+          >
             Privacy Policy
           </a>
           .
@@ -94,7 +84,7 @@ export function LoginForm() {
 
         <Button
           type="submit"
-          className="mt-2 w-full"
+          className="mt-2 w-full bg-brand-blue hover:bg-brand-blue/90"
           disabled={isLoading}
           data-analytics-id="auth-login-submit"
         >

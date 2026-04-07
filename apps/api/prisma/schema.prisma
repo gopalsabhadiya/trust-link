@@ -13,19 +13,33 @@ enum UserRole {
   RECRUITER
 }
 
+enum AuthProvider {
+  MANUAL
+  GOOGLE
+  LINKEDIN
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String
   role      UserRole
+
+  passwordHash     String?
+  authProvider     AuthProvider @default(MANUAL)
+  externalId       String?
+  consentGiven     Boolean      @default(false)
+  consentTimestamp DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  issuedCredentials   VerifiableCredential[] @relation("Issuer")
-  heldCredentials     VerifiableCredential[] @relation("Holder")
-  verificationsSent   VerificationRequest[]  @relation("Verifier")
-  verificationsReceived VerificationRequest[] @relation("VerificationHolder")
+  issuedCredentials     VerifiableCredential[] @relation("Issuer")
+  heldCredentials       VerifiableCredential[] @relation("Holder")
+  verificationsSent     VerificationRequest[]  @relation("Verifier")
+  verificationsReceived VerificationRequest[]  @relation("VerificationHolder")
 
+  @@index([authProvider, externalId])
   @@map("users")
 }
 
@@ -39,9 +53,9 @@ model VerifiableCredential {
   expiresAt DateTime?
   revoked   Boolean   @default(false)
 
-  issuer    User      @relation("Issuer", fields: [issuerId], references: [id])
-  holder    User      @relation("Holder", fields: [holderId], references: [id])
-  requests  VerificationRequest[]
+  issuer   User                    @relation("Issuer", fields: [issuerId], references: [id])
+  holder   User                    @relation("Holder", fields: [holderId], references: [id])
+  requests VerificationRequest[]
 
   @@map("verifiable_credentials")
 }
