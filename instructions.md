@@ -95,7 +95,21 @@ To maintain the 3-layer architecture, follow these strict placement rules:
 ### C. Shared Logic:
 - If a data type or validation schema is used by both FE and BE, it **MUST** be placed in `packages/shared`.
 
-## 6. Vibe Coding Workflow
+## 7. Navigation Standards
+
+All internal route links in the frontend (`apps/web`) **must** use the Next.js `Link` component from `next/link` instead of plain `<a>` tags. This is non-negotiable.
+
+### Rules:
+1.  **Internal Routes → `<Link href="...">`:** Any navigation to a page within the app (e.g., `/login`, `/register`, `/dashboard`) must use `Link` to preserve SPA behavior (client-side transitions, no full page reloads).
+2.  **Hash/Anchor Links → `<a href="#...">`:** Same-page scroll targets (e.g., `#features`, `#how-it-works`) may use standard `<a>` tags since they are not route transitions.
+3.  **External URLs → `<a href="..." target="_blank" rel="noopener noreferrer">`:** Links to third-party sites use standard `<a>` tags with security attributes.
+
+### Rationale:
+Using `<a>` for internal routes causes a full browser reload, destroying SPA state, resetting scroll position, and degrading Core Web Vitals (increases LCP/FID). `next/link` prefetches routes and performs client-side navigation.
+
+---
+
+## 8. Vibe Coding Workflow
 
 Before writing code, you (the AI Agent) must:
 

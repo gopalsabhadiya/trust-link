@@ -1,53 +1,71 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Providers } from "@/lib/providers";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+  preload: true,
+  adjustFontFallback: true,
+});
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
+};
+
 export const metadata: Metadata = {
-  title: "TrustLink — The Trust Layer for the Global Workforce",
+  metadataBase: new URL("https://trustlink.io"),
+  title:
+    "TrustLink — Blockchain Background Verification India | Instant Employee Verification API",
   description:
-    "Decentralized verification protocol that turns professional history into immutable, cryptographically verifiable assets.",
+    "Eliminate resume fraud with India's first DPDP compliant blockchain verification platform. Replace 14-day background checks with 1-second cryptographic proofs. Digital experience letters, automated offboarding, and self-sovereign identity for careers.",
+  applicationName: "TrustLink",
+  keywords: [
+    "Blockchain Background Verification India",
+    "Instant Employee Verification API",
+    "Eliminate Resume Fraud",
+    "DPDP Compliant HR Tech",
+    "Digital Experience Letter",
+    "Automated Employee Offboarding",
+    "Self-Sovereign Identity Careers",
+    "Reduce Time-to-Hire",
+  ],
+  openGraph: {
+    title: "TrustLink — The Trust Layer for the Global Workforce",
+    description:
+      "Replace 14-day background checks with 1-second cryptographic proofs. DPDP compliant, blockchain-verified professional credentials.",
+    url: "https://trustlink.io",
+    siteName: "TrustLink",
+    type: "website",
+    locale: "en_IN",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TrustLink — Instant Employee Verification API",
+    description:
+      "Eliminate resume fraud. 1-second verification. Fully DPDP compliant.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <Providers>
-          <div className="min-h-screen flex flex-col">
-            <header className="border-b border-border">
-              <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl font-bold tracking-tight">
-                    TrustLink
-                  </span>
-                  <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-foreground">
-                    BETA
-                  </span>
-                </div>
-                <nav className="flex items-center gap-6 text-sm text-muted-foreground">
-                  <a href="/" className="hover:text-foreground transition-colors">
-                    Dashboard
-                  </a>
-                  <a
-                    href="/issuance"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Issue
-                  </a>
-                  <a
-                    href="/verification"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Verify
-                  </a>
-                </nav>
-              </div>
-            </header>
-            <main className="flex-1">{children}</main>
-          </div>
-        </Providers>
-      </body>
+    <html lang="en" className={inter.variable}>
+      <head>
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <noscript>
+          <style>{`
+            .opacity-0 { opacity: 1 !important; }
+            .translate-y-8, .-translate-y-8,
+            .translate-x-8, .-translate-x-8 {
+              transform: none !important;
+            }
+          `}</style>
+        </noscript>
+      </head>
+      <body>{children}</body>
     </html>
   );
 }

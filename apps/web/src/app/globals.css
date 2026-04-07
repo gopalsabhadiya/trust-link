@@ -1,27 +1,107 @@
 @import "tailwindcss";
 
+/*
+ * TrustLink design tokens — aligned with `.cursor/rules/brand-identity.md`
+ * Utilities: bg-background, text-foreground, text-brand-blue, bg-brand-green, etc.
+ */
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #0a0a0a;
-  --color-muted: #f4f4f5;
-  --color-muted-foreground: #71717a;
-  --color-border: #e4e4e7;
-  --color-primary: #18181b;
-  --color-primary-foreground: #fafafa;
-  --color-secondary: #f4f4f5;
-  --color-secondary-foreground: #18181b;
-  --color-accent: #2563eb;
+  /* Page & surfaces */
+  --color-background: #f8fafc;
+  --color-foreground: #1e293b;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-border: #e2e8f0;
+
+  /* Primary CTA / trust blue */
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #1e293b;
+
+  /* Hover / pressed (darker blue) */
+  --color-accent: #1d4ed8;
   --color-accent-foreground: #ffffff;
+
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
+
   --color-ring: #2563eb;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Cards sit on slate-50 page */
+  --color-card: #ffffff;
+  --color-card-foreground: #1e293b;
+
+  /* Named brand scale (explicit utilities) */
+  --color-brand-blue: #2563eb;
+  --color-brand-green: #10b981;
+  --color-brand-navy: #1e293b;
+
+  /* Success / verified only — per brand rules */
+  --color-verified: #10b981;
+  --color-verified-foreground: #ffffff;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --radius: 0.5rem;
 }
 
 @layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-foreground font-semibold tracking-tight;
+  }
+}
+
+@keyframes hero-fade-up {
+  from {
+    opacity: 0.01;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-1 {
+  animation: hero-fade-up 0.6s ease-out both;
+}
+.animate-hero-2 {
+  animation: hero-fade-up 0.6s ease-out 0.1s both;
+}
+.animate-hero-3 {
+  animation: hero-fade-up 0.6s ease-out 0.2s both;
+}
+.animate-hero-4 {
+  animation: hero-fade-up 0.6s ease-out 0.3s both;
+}
+.animate-hero-5 {
+  animation: hero-fade-up 0.6s ease-out 0.4s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-hero-1,
+  .animate-hero-2,
+  .animate-hero-3,
+  .animate-hero-4,
+  .animate-hero-5 {
+    animation: none;
   }
 }

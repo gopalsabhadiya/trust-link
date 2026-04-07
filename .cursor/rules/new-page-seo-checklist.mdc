@@ -1,0 +1,61 @@
+---
+description: Enforces SEO checklist when creating or modifying Next.js pages in apps/web
+globs: apps/web/src/app/**/page.tsx
+alwaysApply: false
+---
+
+# New Page SEO & Sitemap Checklist
+
+When creating or modifying any `page.tsx` in `apps/web/src/app/`, you **must** complete every item below before considering the task done.
+
+## 1. Page-Level Metadata (mandatory)
+
+Every `page.tsx` must export a `metadata` object (or `generateMetadata` for dynamic pages):
+
+```tsx
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Page Title — TrustLink | <Primary Keyword>",
+  description: "<120–155 chars incorporating 1-2 target keywords naturally>",
+  openGraph: {
+    title: "...",
+    description: "...",
+  },
+};
+```
+
+- **Title formula:** `Descriptive Title — TrustLink | Primary Keyword`
+- **Description:** 120–155 characters, includes at least one primary keyword and one secondary keyword.
+- Target keyword bank: "Blockchain Background Verification India", "Instant Employee Verification API", "Eliminate Resume Fraud", "DPDP Compliant HR Tech", "Digital Experience Letter", "Automated Employee Offboarding", "Self-Sovereign Identity Careers", "Reduce Time-to-Hire".
+
+## 2. Sitemap Entry (mandatory)
+
+After creating a new public-facing page, add an entry to `apps/web/src/app/sitemap.ts`:
+
+```tsx
+{
+  url: `${BASE_URL}/<new-route>`,
+  lastModified: now,
+  changeFrequency: "weekly",   // or "monthly" for low-change pages
+  priority: 0.7,               // 1.0 = homepage, 0.8 = conversion, 0.5 = support pages
+}
+```
+
+**Do NOT skip this step.** If the page is not in the sitemap, search engines will not discover it reliably.
+
+## 3. Semantic HTML Heading Hierarchy
+
+- Exactly **one `<h1>`** per page, incorporating primary keyword.
+- Subsections use `<h2>` → `<h3>` in order. Never skip levels.
+
+## 4. Internal Links Use `next/link`
+
+All internal route links must use `<Link>` from `next/link` (see Section 7 of instructions.md). Anchor links (`#section`) may use `<a>`.
+
+## 5. Self-Check Prompt
+
+After finishing, verify:
+- "Did I add metadata with keywords to this page?" — if no, add it.
+- "Did I add this route to sitemap.ts?" — if no, add it.
+- "Does my h1 contain a target keyword?" — if no, revise it.
