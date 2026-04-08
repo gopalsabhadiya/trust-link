@@ -15,6 +15,10 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  /** Public avatar URL when set (OAuth or uploaded). */
+  profilePicture: string | null;
+  /** Unread in-app notifications (server-computed; 0 when none). */
+  notificationCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +32,8 @@ export interface UserDTO {
   authProvider: AuthProvider;
   consentGiven: boolean;
   consentTimestamp: Date | null;
+  profilePicture: string | null;
+  notificationCount: number;
   createdAt: Date;
   updatedAt: Date;
 }

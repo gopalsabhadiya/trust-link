@@ -1,8 +1,9 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import passport from "passport";
 import { env } from "../config";
 import { AuthController } from "../controllers/auth.controller";
 import { authLoginLimiter, authRegisterLimiter } from "../middleware/auth-rate-limit";
+import { checkRole, requireAuth } from "../middleware";
 import { UserRepository } from "../repositories/user.repository";
 import { AuthService } from "../services/auth.service";
 
@@ -14,6 +15,12 @@ const router = Router();
 
 router.post("/register", authRegisterLimiter, authController.register);
 router.post("/login", authLoginLimiter, authController.login);
+router.post("/logout", authController.logout);
+router.get("/me", requireAuth, authController.me);
+
+// Example RBAC-protected endpoints for role-specific dashboard data.
+router.get("/me/hr", requireAuth, checkRole(["HR"]), authController.me);
+router.get("/me/recruiter", requireAuth, checkRole(["RECRUITER", "HR"]), authController.me);
 
 router.get("/google", authController.googleStart);
 router.get(

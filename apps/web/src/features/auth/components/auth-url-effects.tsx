@@ -20,10 +20,14 @@ export function AuthUrlEffects() {
     const key = `${pathname}?${searchParams.toString()}`;
     if (handledKey.current === key) return;
 
-    if (pathname === "/" && oauth === "success") {
+    if ((pathname === "/" || pathname === "/dashboard") && oauth === "success") {
       handledKey.current = key;
       toast.success("You're signed in.");
-      window.history.replaceState({}, "", "/");
+      window.history.replaceState(
+        {},
+        "",
+        pathname === "/dashboard" ? "/dashboard" : "/"
+      );
       return;
     }
 

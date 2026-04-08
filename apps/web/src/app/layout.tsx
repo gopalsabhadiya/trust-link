@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import { SonnerToaster } from "@/components/ui/sonner-toaster";
 import { AuthUrlEffects } from "@/features/auth/components/auth-url-effects";
+import { Providers } from "@/lib/providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -69,11 +70,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </noscript>
       </head>
       <body>
-        <SonnerToaster />
-        <Suspense fallback={null}>
-          <AuthUrlEffects />
-        </Suspense>
-        {children}
+        <Providers>
+          <SonnerToaster />
+          <Suspense fallback={null}>
+            <AuthUrlEffects />
+          </Suspense>
+          {children}
+        </Providers>
       </body>
     </html>
   );

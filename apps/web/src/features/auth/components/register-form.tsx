@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -14,9 +14,9 @@ import { Separator } from "@/components/ui/separator";
 import { SocialLoginButtons } from "./social-login-buttons";
 import { useAuth } from "../hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { Building2, User } from "lucide-react";
+import { Building2, Search, User } from "lucide-react";
 
-type AccountType = Extract<UserRole, "HR" | "CANDIDATE">;
+type AccountType = Extract<UserRole, "HR" | "CANDIDATE" | "RECRUITER">;
 
 const ACCOUNT_TYPES: {
   value: AccountType;
@@ -31,6 +31,12 @@ const ACCOUNT_TYPES: {
     icon: Building2,
   },
   {
+    value: "RECRUITER",
+    label: "Recruiter",
+    description: "Source and verify candidates with instant proof checks",
+    icon: Search,
+  },
+  {
     value: "CANDIDATE",
     label: "Candidate",
     description: "Own your verified career history in a digital wallet",
@@ -40,7 +46,7 @@ const ACCOUNT_TYPES: {
 
 export function RegisterForm() {
   const { register: submitRegistration, isLoading } = useAuth();
-  const [accountType, setAccountType] = useState<AccountType>("HR");
+  const [accountType, setAccountType] = useState<AccountType>("RECRUITER");
 
   const {
     register,
@@ -55,7 +61,7 @@ export function RegisterForm() {
       email: "",
       password: "",
       consent: false,
-      role: "HR",
+      role: "RECRUITER",
     },
   });
 
@@ -72,17 +78,15 @@ export function RegisterForm() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Create your account
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Create your account</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Join TrustLink and start verifying or owning credentials today.
         </p>
       </div>
 
       <fieldset className="mb-6">
-        <legend className="mb-3 text-sm font-medium">I am a...</legend>
-        <div className="grid grid-cols-2 gap-3">
+        <legend className="mb-3 text-sm font-medium text-slate-800">I am a...</legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {ACCOUNT_TYPES.map((type) => {
             const Icon = type.icon;
             const selected = accountType === type.value;
@@ -92,9 +96,9 @@ export function RegisterForm() {
                 type="button"
                 onClick={() => setAccountType(type.value)}
                 className={cn(
-                  "flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-center transition-all",
+                  "flex flex-col items-center gap-2 rounded-md border-2 p-4 text-center transition-all",
                   selected
-                    ? "border-brand-blue bg-brand-blue/5"
+                    ? "border-brand-blue bg-brand-blue-subtle"
                     : "border-border hover:border-muted-foreground/30"
                 )}
                 aria-pressed={selected}
@@ -102,11 +106,11 @@ export function RegisterForm() {
                 <Icon
                   className={cn(
                     "h-5 w-5",
-                    selected ? "text-brand-blue" : "text-muted-foreground"
+                    selected ? "text-[var(--color-brand-blue)]" : "text-muted-foreground"
                   )}
                   aria-hidden="true"
                 />
-                <span className="text-sm font-semibold">{type.label}</span>
+                <span className="text-sm font-semibold text-slate-800">{type.label}</span>
                 <span className="text-[11px] leading-tight text-muted-foreground">
                   {type.description}
                 </span>
@@ -192,8 +196,8 @@ export function RegisterForm() {
             htmlFor="register-dpdp-consent"
             className="cursor-pointer text-xs leading-relaxed text-muted-foreground"
           >
-            I agree to the processing of my personal data under the DPDP Act for
-            recruitment purposes. I have read the{" "}
+            I agree to the processing of my personal data under the DPDP Act for recruitment
+            purposes. I have read the{" "}
             <a
               href="#"
               className="text-brand-blue underline hover:text-brand-navy"

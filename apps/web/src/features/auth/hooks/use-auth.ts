@@ -17,7 +17,7 @@ export function useAuth() {
       const { data } = await authApi.login(payload);
       if (data.success && data.data) {
         toast.success("Signed in successfully.");
-        router.push("/");
+        router.push("/dashboard");
       } else {
         const msg = data.error ?? "Login failed";
         setError(msg);
@@ -39,7 +39,7 @@ export function useAuth() {
       const { data } = await authApi.register(payload);
       if (data.success && data.data) {
         toast.success("Account created. You're signed in.");
-        router.push("/");
+        router.push("/dashboard");
       } else {
         const msg = data.error ?? "Registration failed";
         setError(msg);

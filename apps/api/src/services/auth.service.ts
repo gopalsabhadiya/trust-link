@@ -14,6 +14,8 @@ function toUserDTO(user: PrismaUser): UserDTO {
     authProvider: user.authProvider,
     consentGiven: user.consentGiven,
     consentTimestamp: user.consentTimestamp,
+    profilePicture: user.profilePicture ?? null,
+    notificationCount: 0,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -77,6 +79,11 @@ export class AuthService {
       throw new AppError(401, "UNAUTHORIZED", "Invalid email or password");
     }
     return toUserDTO(user);
+  }
+
+  async getSessionProfile(userId: string): Promise<UserDTO | null> {
+    const user = await this.users.findById(userId);
+    return user ? toUserDTO(user) : null;
   }
 
   async signInWithOAuth(input: OAuthSignInInput): Promise<UserDTO> {

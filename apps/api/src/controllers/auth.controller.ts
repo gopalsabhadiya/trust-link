@@ -4,7 +4,7 @@ import passport from "passport";
 import { env, isGoogleOAuthConfigured, isLinkedInOAuthConfigured } from "../config";
 import type { OAuthProfilePayload } from "../config/passport";
 import { AuthService } from "../services/auth.service";
-import { setAuthCookie } from "../utils/auth-cookie";
+import { clearAuthCookie, setAuthCookie } from "../utils/auth-cookie";
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -74,10 +74,45 @@ export class AuthController {
       }
       const dto = await this.authService.signInWithOAuth(profile);
       setAuthCookie(res, dto.id, dto.email);
-      res.redirect(`${env.WEB_ORIGIN}/?oauth=success`);
+      res.redirect(`${env.WEB_ORIGIN}/dashboard?oauth=success`);
     } catch (e) {
       next(e);
     }
+  };
+
+  me = async (
+    req: Request,
+    res: Response<ApiResponse<UserDTO>>,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const auth = req.authUser;
+      if (!auth) {
+        res.status(401).json({
+          success: false,
+          data: null,
+          error: "Not authenticated",
+        });
+        return;
+      }
+      const profile = await this.authService.getSessionProfile(auth.id);
+      if (!profile) {
+        res.status(401).json({
+          success: false,
+          data: null,
+          error: "Session invalid",
+        });
+        return;
+      }
+      res.json({ success: true, data: profile, error: null });
+    } catch (e) {
+      next(e);
+    }
+  };
+
+  logout = (_req: Request, res: Response<ApiResponse<null>>): void => {
+    clearAuthCookie(res);
+    res.json({ success: true, data: null, error: null });
   };
 
   linkedinStart = (_req: Request, res: Response, next: NextFunction): void => {
@@ -105,7 +140,7 @@ export class AuthController {
       }
       const dto = await this.authService.signInWithOAuth(profile);
       setAuthCookie(res, dto.id, dto.email);
-      res.redirect(`${env.WEB_ORIGIN}/?oauth=success`);
+      res.redirect(`${env.WEB_ORIGIN}/dashboard?oauth=success`);
     } catch (e) {
       next(e);
     }
