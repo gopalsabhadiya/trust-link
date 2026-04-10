@@ -17,6 +17,13 @@ const EnvSchema = z.object({
   API_PUBLIC_URL: z.string().url().default("http://localhost:4000"),
   /** Frontend origin for CORS + post-OAuth redirect */
   WEB_ORIGIN: z.string().url().default("http://localhost:3000"),
+  /** Frontend base used for public magic review links */
+  FRONTEND_URL: z.string().url().default("http://localhost:3000"),
+  VERIFY_BASE_URL: z.string().url().default("http://localhost:3000"),
+  ISSUANCE_PRIVATE_KEY_PEM: z
+    .string()
+    .min(1, "ISSUANCE_PRIVATE_KEY_PEM is required for credential signing"),
+  PRIVACY_POLICY_VERSION: z.string().default("DPDP-2026-v1"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
   JWT_EXPIRES_DAYS: z.coerce.number().default(7),
   COOKIE_NAME: z.string().default("tl_auth"),

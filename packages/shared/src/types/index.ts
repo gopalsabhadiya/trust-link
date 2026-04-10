@@ -58,3 +58,22 @@ export interface VerificationRequest {
   requestedAt: Date;
   resolvedAt: Date | null;
 }
+
+export type {
+  IExperienceLetter,
+  CredentialStatus,
+  DraftReviewAction,
+  DraftReviewPublicDTO,
+  IssuedCredentialDTO,
+  VerifyCredentialDTO,
+} from "./credentials";
+
+export type {
+  ExperienceUiStatus,
+  CandidateExperienceSummaryDTO,
+  CandidateExperienceCaseDTO,
+  CandidateExperienceTimelineItemDTO,
+  CandidateExperienceResponseDTO,
+  CaseEditPayloadDTO,
+  RegenerateReviewLinkDTO,
+} from "./experience";

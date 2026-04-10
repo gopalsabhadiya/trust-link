@@ -39,6 +39,8 @@ model User {
   heldCredentials       VerifiableCredential[] @relation("Holder")
   verificationsSent     VerificationRequest[]  @relation("Verifier")
   verificationsReceived VerificationRequest[]  @relation("VerificationHolder")
+  credentialCases       CredentialCase[]       @relation("CandidateCredentialCases")
+  consentActions        DraftConsentAudit[]    @relation("ConsentActor")
 
   @@index([authProvider, externalId])
   @@map("users")
@@ -67,6 +69,15 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum CredentialStatus {
+  DRAFT_SUBMITTED
+  HR_REVIEWING
+  HR_APPROVED
+  REVISIONS_REQUIRED
+  ISSUED
+  REJECTED
+}
+
 model VerificationRequest {
   id           String             @id @default(cuid())
   verifierId   String
@@ -81,4 +92,125 @@ model VerificationRequest {
   credential VerifiableCredential @relation(fields: [credentialId], references: [id])
 
   @@map("verification_requests")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  credentialCases CredentialCase[]
+
+  @@map("companies")
+}
+
+/// Employment credential thread (one logical experience-letter journey).
+model CredentialCase {
+  id               String   @id @default(uuid())
+  candidateId      String
+  companyId        String
+  currentVersionId String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  candidate User @relation("CandidateCredentialCases", fields: [candidateId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
+
+  versions       CredentialDraftVersion[]
+  currentVersion CredentialDraftVersion?  @relation("CaseCurrentVersion", fields: [currentVersionId], references: [id])
+  snapshots      IssuedCredentialSnapshot[]
+
+  @@index([candidateId])
+  @@map("credential_cases")
+}
+
+/// Append-only version history for a case; HR magic link is always bound to one version row.
+model CredentialDraftVersion {
+  id             String           @id @default(uuid())
+  caseId         String
+  versionNumber  Int
+  content        Json
+  status         CredentialStatus @default(DRAFT_SUBMITTED)
+  magicTokenHash String?          @unique
+  tokenExpiresAt DateTime?
+  consentLogged  Boolean          @default(false)
+  hrFeedback     String?
+  reviewedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  case           CredentialCase           @relation(fields: [caseId], references: [id])
+  currentForCase CredentialCase?          @relation("CaseCurrentVersion")
+  issuedSnapshot IssuedCredentialSnapshot?
+  consentAudits  DraftConsentAudit[]
+  complianceLogs ComplianceAuditLog[]
+
+  @@unique([caseId, versionNumber])
+  @@index([caseId, versionNumber])
+  @@map("credential_draft_versions")
+}
+
+enum PurgeStatus {
+  NONE
+  SCHEDULED
+  PURGED
+}
+
+/// Immutable issuance artifact; supports revocation without rewriting history.
+model IssuedCredentialSnapshot {
+  id                   String      @id @default(uuid())
+  caseId               String
+  sourceVersionId      String      @unique
+  credentialHash       String      @unique
+  signature            String
+  signatoryPubKey      String
+  contentSnapshot      Json
+  issuedAt             DateTime    @default(now())
+  revokedAt            DateTime?
+  revocationReason     String?
+  privacyPolicyVersion String?
+  purgeAfterAt         DateTime?
+  purgedAt             DateTime?
+  purgeStatus          PurgeStatus @default(NONE)
+
+  case    CredentialCase         @relation(fields: [caseId], references: [id])
+  version CredentialDraftVersion @relation(fields: [sourceVersionId], references: [id])
+
+  @@index([caseId])
+  @@index([credentialHash])
+  @@map("issued_credential_snapshots")
+}
+
+model DraftConsentAudit {
+  id                      String   @id @default(uuid())
+  versionId               String
+  actorUserId             String
+  action                  CredentialStatus
+  consentStatementVersion String
+  consentCapturedAt       DateTime @default(now())
+  ipHash                  String?
+  userAgentHash           String?
+
+  version   CredentialDraftVersion @relation(fields: [versionId], references: [id])
+  actorUser User                   @relation("ConsentActor", fields: [actorUserId], references: [id])
+
+  @@index([versionId, consentCapturedAt])
+  @@map("draft_consent_audits")
+}
+
+model ComplianceAuditLog {
+  id                   String   @id @default(uuid())
+  versionId            String
+  action               String
+  actorUserId          String?
+  actorMagicTokenHash  String?
+  privacyPolicyVersion String
+  actionTimestamp      DateTime @default(now())
+  notes                String?
+
+  version CredentialDraftVersion @relation(fields: [versionId], references: [id])
+
+  @@index([versionId, actionTimestamp])
+  @@map("compliance_audit_logs")
 }
