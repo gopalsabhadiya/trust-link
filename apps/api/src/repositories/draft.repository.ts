@@ -250,7 +250,11 @@ export class DraftRepository {
         where: { id: input.caseId, candidateId: input.candidateId },
         include: { currentVersion: true },
       });
-      if (!caseRec?.currentVersion || caseRec.currentVersion.status !== "REVISIONS_REQUIRED") {
+      const st = caseRec?.currentVersion?.status;
+      if (
+        !caseRec?.currentVersion ||
+        (st !== "REVISIONS_REQUIRED" && st !== "REJECTED")
+      ) {
         return null;
       }
 

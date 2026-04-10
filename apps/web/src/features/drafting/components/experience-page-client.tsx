@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2 } from "lucide-react";
@@ -68,6 +68,12 @@ export function ExperiencePageClient() {
     queryFn: () => fetchCaseEditPayload(editCaseId!),
     enabled: Boolean(sheetOpen && sheetMode === "resubmit" && editCaseId),
   });
+
+  /** Stable reference so the draft form does not reset on every parent re-render (e.g. dirty-state updates). */
+  const resubmitFormDefaults = useMemo(() => {
+    if (sheetMode !== "resubmit" || !editQuery.data) return null;
+    return caseEditPayloadToFormValues(editQuery.data);
+  }, [sheetMode, editQuery.data]);
 
   const handleSheetOpenChange = useCallback(
     (open: boolean) => {
@@ -272,11 +278,7 @@ export function ExperiencePageClient() {
                 sheetView={sheetView}
                 mode={sheetMode}
                 caseId={sheetMode === "resubmit" ? editCaseId ?? undefined : undefined}
-                initialValues={
-                  sheetMode === "resubmit" && editQuery.data
-                    ? caseEditPayloadToFormValues(editQuery.data)
-                    : null
-                }
+                initialValues={resubmitFormDefaults}
                 hrFeedback={sheetMode === "resubmit" ? editQuery.data?.hrFeedback ?? null : null}
                 onSuccess={handleDraftSuccess}
                 onDirtyChange={setFormDirty}

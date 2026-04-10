@@ -1,14 +1,16 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ExperienceLetterSchema, type ExperienceLetterInput } from "@trustlink/shared";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -45,6 +47,12 @@ const DraftFormSchema = z.object({
   companyName: z.string().min(1, "Company name is required").max(255),
   hrSignatoryName: z.string().min(1, "HR signatory name is required").max(255),
   hrEmail: z.string().trim().email("Valid HR email is required"),
+  dpdpConsent: z
+    .boolean()
+    .refine((v) => v === true, {
+      message:
+        "Confirm consent to share this professional data with your employer for credential issuance under the DPDP Act.",
+    }),
 });
 
 export type ExperienceDraftFormValues = z.infer<typeof DraftFormSchema>;
@@ -54,6 +62,7 @@ const DEFAULT_FORM_VALUES: ExperienceDraftFormValues = {
   keyAchievements: [{ value: "" }],
   awards: [],
   hrEmail: "",
+  dpdpConsent: false,
 };
 
 export function ExperienceLetterDraftForm({
@@ -98,7 +107,7 @@ export function ExperienceLetterDraftForm({
 
   useEffect(() => {
     if (mode !== "resubmit" || !initialValues) return;
-    reset(initialValues);
+    reset({ ...initialValues, dpdpConsent: false });
   }, [mode, initialValues, reset]);
 
   useEffect(() => {
@@ -164,7 +173,7 @@ export function ExperienceLetterDraftForm({
           caseId,
           payload: {
             content: parsedPayload,
-            consentLogged: true,
+            consentLogged: values.dpdpConsent,
             hrEmail: values.hrEmail,
           },
         });
@@ -175,7 +184,7 @@ export function ExperienceLetterDraftForm({
       }
       await submitDraft.mutateAsync({
         content: parsedPayload,
-        consentLogged: true,
+        consentLogged: values.dpdpConsent,
         hrEmail: values.hrEmail,
       });
       toast.success("Draft sent! We've generated a magic link for your HR.");
@@ -248,7 +257,10 @@ export function ExperienceLetterDraftForm({
           </div>
 
           {mode === "resubmit" && hrFeedback ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+            <div
+              className="relative z-0 mb-1 shrink-0 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+              role="note"
+            >
               <p className="font-medium">HR feedback</p>
               <p className="mt-1 whitespace-pre-wrap text-amber-900/90">{hrFeedback}</p>
             </div>
@@ -386,10 +398,36 @@ export function ExperienceLetterDraftForm({
             {errors.hrEmail && <p className="text-sm text-red-500">{errors.hrEmail.message}</p>}
           </div>
 
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
-            By submitting this draft, you consent to sharing this professional data with your
-            employer for the purpose of credential issuance under the DPDP Act 2026.
+          <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <Controller
+              name="dpdpConsent"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="draft-dpdp-consent"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                  className="mt-0.5"
+                  aria-invalid={Boolean(errors.dpdpConsent)}
+                />
+              )}
+            />
+            <label htmlFor="draft-dpdp-consent" className="cursor-pointer text-xs leading-relaxed text-slate-600">
+              I consent to sharing this professional data with my employer for credential issuance
+              under the DPDP Act. I have read the{" "}
+              <Link href="/privacy-policy" className="text-brand-blue underline hover:text-brand-navy">
+                Privacy Policy
+              </Link>
+              .
+            </label>
           </div>
+          {errors.dpdpConsent && (
+            <p className="text-sm text-red-500" role="alert">
+              {errors.dpdpConsent.message}
+            </p>
+          )}
 
           <Button
             type="submit"

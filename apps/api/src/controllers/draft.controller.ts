@@ -10,9 +10,11 @@ import { DraftService } from "../services/draft.service";
 
 const CreateDraftRequestSchema = z
   .object({
-  content: ExperienceLetterSchema,
-  consentLogged: z.boolean(),
-  hrEmail: z.string().trim().email("Invalid HR email address"),
+    content: ExperienceLetterSchema,
+    consentLogged: z
+      .boolean()
+      .refine((v) => v === true, { message: "DPDP consent must be confirmed before submitting" }),
+    hrEmail: z.string().trim().email("Invalid HR email address"),
   })
   .strict();
 
