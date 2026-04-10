@@ -1,10 +1,13 @@
 ﻿"use client";
 
+import type { MouseEventHandler } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   Building2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   LayoutDashboard,
   Link2,
@@ -13,6 +16,7 @@ import {
   UserSearch,
 } from "lucide-react";
 import { BrandIcon, TrustLinkLogoMark } from "@/components/brand";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { UserDTO, UserRole } from "@trustlink/shared";
 
@@ -28,78 +32,221 @@ const ROLE_EXTRA: Record<UserRole, { href: string; label: string; icon: LucideIc
   HR: [{ href: "#", label: "Team metrics", icon: Building2 }],
 };
 
+/**
+ * @param collapsed `true` | `false` = desktop rail (labels animate). Omit = mobile drawer (labels always shown).
+ */
+function SidebarNavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+  collapsed,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+  collapsed?: boolean;
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
+}) {
+  const isDrawer = collapsed === undefined;
+  const labelCollapsed = collapsed === true;
+
+  const link = (
+    <Link
+      href={href}
+      onClick={onClick}
+      aria-label={labelCollapsed ? label : undefined}
+      className={cn(
+        "flex w-full min-w-0 items-center rounded-md border-2 text-sm transition-colors duration-150 ease-out",
+        isDrawer ? "gap-3 px-3 py-2.5" : "gap-1 px-2 py-2",
+        active
+          ? "border-[var(--color-brand-blue)] bg-brand-blue-subtle font-semibold text-[var(--color-brand-blue)] shadow-sm"
+          : "border-transparent font-medium text-slate-800 hover:bg-slate-100"
+      )}
+    >
+      <span className="flex h-9 w-10 shrink-0 items-center justify-center">
+        <BrandIcon icon={Icon} variant={active ? "brand" : "muted"} size="md" />
+      </span>
+      <span
+        className={cn(
+          "block min-w-0 overflow-hidden whitespace-nowrap text-left",
+          isDrawer && "max-w-[min(100%,18rem)] opacity-100 transition-[max-width,opacity] duration-200 ease-sidebar",
+          !isDrawer && "transition-sidebar-label",
+          !isDrawer && labelCollapsed && "max-w-0 opacity-0",
+          !isDrawer && !labelCollapsed && "max-w-[min(100%,15rem)] opacity-100",
+          active ? "font-semibold text-[var(--color-brand-blue)]" : "font-medium text-slate-800"
+        )}
+        aria-hidden={labelCollapsed}
+      >
+        {label}
+      </span>
+    </Link>
+  );
+
+  if (labelCollapsed) {
+    return (
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right" align="center" className="font-medium">
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return link;
+}
+
 export function DashboardSidebar({
   user,
   mobileOpen,
   onNavigate,
   onOpenMobileMenu,
+  sidebarCollapsed,
+  onToggleSidebarCollapsed,
 }: {
   user: UserDTO;
   mobileOpen: boolean;
   onNavigate?: () => void;
   onOpenMobileMenu?: () => void;
+  sidebarCollapsed: boolean;
+  onToggleSidebarCollapsed: () => void;
 }) {
   const pathname = usePathname();
   const extra = ROLE_EXTRA[user.role];
 
-  const NavList = ({
-    expanded,
-    onLinkClick,
-  }: {
-    expanded: boolean;
-    onLinkClick?: () => void;
-  }) => (
-    <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Workspace">
+  const DesktopNav = () => (
+    <nav
+      id="dashboard-workspace-nav"
+      className="flex flex-col gap-1 p-3"
+      aria-label="Workspace"
+    >
       {BASE_NAV.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
         return (
-          <Link
+          <SidebarNavLink
             key={href}
             href={href}
-            onClick={onLinkClick}
-            className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
-              expanded ? "justify-start" : "justify-center px-0",
-              active
-                ? "border border-brand-blue-subtle bg-brand-blue-subtle text-[var(--color-brand-blue)]"
-                : "border border-transparent text-slate-800 hover:bg-slate-100"
-            )}
-          >
-            <BrandIcon icon={Icon} variant={active ? "brand" : "muted"} size="md" />
-            {expanded && <span className="text-slate-800">{label}</span>}
-          </Link>
+            label={label}
+            icon={Icon}
+            active={active}
+            collapsed={sidebarCollapsed}
+          />
         );
       })}
-      {expanded &&
-        extra.map(({ href, label, icon: Icon }) => {
-          const roleLinkActive = href !== "#" && pathname === href;
-          return (
-            <Link
-              key={label}
-              href={href}
-              onClick={onLinkClick}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
-                roleLinkActive
-                  ? "border border-brand-blue-subtle bg-brand-blue-subtle text-[var(--color-brand-blue)]"
-                  : "border border-transparent text-slate-800 hover:bg-slate-100"
-              )}
-            >
-              <BrandIcon icon={Icon} variant={roleLinkActive ? "brand" : "muted"} size="md" />
-              {label}
-            </Link>
-          );
-        })}
+      {extra.map(({ href, label, icon: Icon }) => {
+        const roleLinkActive = href !== "#" && pathname === href;
+        return (
+          <SidebarNavLink
+            key={label}
+            href={href}
+            label={label}
+            icon={Icon}
+            active={roleLinkActive}
+            collapsed={sidebarCollapsed}
+            onClick={href === "#" ? (e) => e.preventDefault() : undefined}
+          />
+        );
+      })}
+    </nav>
+  );
+
+  const MobileDrawerNav = () => (
+    <nav className="flex flex-col gap-1 p-3" aria-label="Workspace">
+      {BASE_NAV.map(({ href, label, icon: Icon }) => {
+        const active = pathname === href;
+        return (
+          <SidebarNavLink
+            key={href}
+            href={href}
+            label={label}
+            icon={Icon}
+            active={active}
+            onClick={() => {
+              onNavigate?.();
+            }}
+          />
+        );
+      })}
+      {extra.map(({ href, label, icon: Icon }) => {
+        const roleLinkActive = href !== "#" && pathname === href;
+        return (
+          <SidebarNavLink
+            key={label}
+            href={href}
+            label={label}
+            icon={Icon}
+            active={roleLinkActive}
+            onClick={(e) => {
+              if (href === "#") e.preventDefault();
+              onNavigate?.();
+            }}
+          />
+        );
+      })}
     </nav>
   );
 
   return (
     <>
-      <aside className="relative hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
-        <div className="flex h-16 items-center border-b border-slate-100 px-4">
-          <TrustLinkLogoMark />
+      <aside
+        className={cn(
+          "relative hidden h-full min-h-0 shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-[320ms] ease-sidebar md:flex",
+          sidebarCollapsed ? "w-20" : "w-64"
+        )}
+      >
+        <div
+          className={cn(
+            "flex h-16 shrink-0 items-center border-b border-slate-200 bg-white transition-[padding,gap] duration-[320ms] ease-sidebar",
+            sidebarCollapsed ? "gap-0 px-0.5" : "gap-1 px-2.5"
+          )}
+        >
+          <div className="flex min-w-0 flex-1 items-center justify-start overflow-hidden">
+            <TrustLinkLogoMark
+              variant="sidebar"
+              showWordmark={!sidebarCollapsed}
+              iconSize="xl"
+              className="min-w-0"
+            />
+          </div>
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onToggleSidebarCollapsed}
+                aria-expanded={!sidebarCollapsed}
+                aria-controls="dashboard-workspace-nav"
+                aria-label={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors duration-[320ms] ease-sidebar hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2"
+              >
+                <span className="relative h-5 w-5 shrink-0">
+                  <ChevronLeft
+                    className={cn(
+                      "absolute inset-0 h-5 w-5 text-[var(--color-brand-blue)] transition-opacity duration-[320ms] ease-sidebar",
+                      sidebarCollapsed ? "opacity-0" : "opacity-100"
+                    )}
+                    aria-hidden
+                  />
+                  <ChevronRight
+                    className={cn(
+                      "absolute inset-0 h-5 w-5 text-[var(--color-brand-blue)] transition-opacity duration-[320ms] ease-sidebar",
+                      sidebarCollapsed ? "opacity-100" : "opacity-0"
+                    )}
+                    aria-hidden
+                  />
+                </span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" align="center">
+              {sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            </TooltipContent>
+          </Tooltip>
         </div>
-        <NavList expanded />
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <DesktopNav />
+        </div>
       </aside>
 
       <aside
@@ -111,7 +258,7 @@ export function DashboardSidebar({
       >
         <button
           type="button"
-          className="flex h-16 w-full items-center justify-center border-b border-slate-100 text-[var(--color-brand-blue)] transition hover:bg-brand-blue-subtle"
+          className="flex h-16 w-full items-center justify-center border-b border-slate-200 text-[var(--color-brand-blue)] transition-colors duration-150 hover:bg-brand-blue-subtle"
           aria-label="Open TrustLink menu"
           onClick={() => onOpenMobileMenu?.()}
         >
@@ -121,10 +268,10 @@ export function DashboardSidebar({
           <Link
             href="/dashboard"
             className={cn(
-              "rounded-md p-2 transition",
+              "rounded-md border-2 p-2 transition-colors duration-150 ease-out",
               pathname === "/dashboard"
-                ? "bg-brand-blue-subtle text-[var(--color-brand-blue)]"
-                : "text-[var(--color-brand-blue)] hover:bg-brand-blue-subtle"
+                ? "border-[var(--color-brand-blue)] bg-brand-blue-subtle text-[var(--color-brand-blue)] shadow-sm"
+                : "border-transparent text-[var(--color-brand-blue)] hover:bg-slate-100"
             )}
             aria-label="Overview"
           >
@@ -142,10 +289,12 @@ export function DashboardSidebar({
             onClick={onNavigate}
           />
           <aside className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white shadow-xl md:hidden">
-            <div className="flex h-16 items-center border-b border-slate-100 px-4">
-              <TrustLinkLogoMark />
+            <div className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-4">
+              <TrustLinkLogoMark variant="sidebar" />
             </div>
-            <NavList expanded onLinkClick={onNavigate} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <MobileDrawerNav />
+            </div>
           </aside>
         </>
       )}

@@ -8,6 +8,7 @@ export interface CreateManualUserInput {
   passwordHash: string;
   consentGiven: boolean;
   consentTimestamp: Date;
+  consentPolicyVersion: string;
 }
 
 export interface CreateOAuthUserInput {
@@ -18,6 +19,7 @@ export interface CreateOAuthUserInput {
   externalId: string;
   consentGiven: boolean;
   consentTimestamp: Date;
+  consentPolicyVersion: string;
 }
 
 export class UserRepository {
@@ -48,6 +50,7 @@ export class UserRepository {
         authProvider: "MANUAL",
         consentGiven: data.consentGiven,
         consentTimestamp: data.consentTimestamp,
+        consentPolicyVersion: data.consentPolicyVersion,
       },
     });
   }
@@ -63,6 +66,7 @@ export class UserRepository {
         passwordHash: null,
         consentGiven: data.consentGiven,
         consentTimestamp: data.consentTimestamp,
+        consentPolicyVersion: data.consentPolicyVersion,
       },
     });
   }

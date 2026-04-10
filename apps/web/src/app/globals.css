@@ -55,6 +55,22 @@
 }
 
 @layer utilities {
+  /** Dashboard sidebar width / labels / logo — keep in sync (300ms, Material-style deceleration). */
+  .ease-sidebar {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /**
+   * Labels: max-width leads slightly, opacity follows (reduces “text snap”).
+   * Logo wordmark uses the same curve.
+   */
+  .transition-sidebar-label {
+    transition-property: max-width, opacity;
+    transition-duration: 320ms, 280ms;
+    transition-delay: 0ms, 45ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1), cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
   .bg-brand-blue-subtle {
     background-color: var(--color-brand-blue-subtle-bg);
   }

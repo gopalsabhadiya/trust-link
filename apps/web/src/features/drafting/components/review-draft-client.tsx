@@ -1,15 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { ERROR_CODES } from "@trustlink/shared";
 import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { TrustLinkLogoMark } from "@/components/brand";
 import { CredentialPreview } from "./credential-preview";
+import { DraftRequestError } from "../api/drafts-api";
 import { useDraftReview, useDraftReviewAction } from "../hooks/use-draft-review";
+import { cn } from "@/lib/utils";
 
 export function ReviewDraftClient({ token }: { token: string }) {
   const router = useRouter();
@@ -39,6 +43,21 @@ export function ReviewDraftClient({ token }: { token: string }) {
     );
   }
 
+  const reviewErr = reviewQuery.error;
+  if (reviewQuery.isError && reviewErr instanceof DraftRequestError) {
+    if (reviewErr.errorCode === ERROR_CODES.REVIEW_EMAIL_MISMATCH) {
+      return (
+        <AccessDeniedEmailState
+          token={token}
+          masked={reviewErr.meta?.invitedEmailMasked}
+        />
+      );
+    }
+    if (reviewErr.errorCode === ERROR_CODES.LEGACY_REVIEW_INVITATION) {
+      return <LegacyReviewInvitationState />;
+    }
+  }
+
   if (reviewQuery.isError || !reviewQuery.data || !previewData) {
     return <ExpiredReviewState />;
   }
@@ -61,7 +80,7 @@ export function ReviewDraftClient({ token }: { token: string }) {
           </div>
           <Badge variant="outline" className="rounded-md border-brand-blue-subtle text-brand-blue">
             <ShieldCheck className="mr-1 h-3.5 w-3.5" />
-            Token-authenticated access
+            HR-verified session
           </Badge>
         </div>
       </div>
@@ -154,6 +173,54 @@ export function ReviewDraftClient({ token }: { token: string }) {
         )}
       </div>
     </div>
+  );
+}
+
+function AccessDeniedEmailState({ token, masked }: { token: string; masked?: string }) {
+  const reviewPath = `/review/${token}`;
+  return (
+    <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center p-6">
+      <div className="w-full rounded-lg border border-slate-200 bg-white p-8 text-center">
+        <div className="mb-4 flex items-center justify-center">
+          <TrustLinkLogoMark />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-800">Access denied</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          This review is restricted to{" "}
+          <strong className="font-medium text-slate-800">
+            {masked ?? "the invited HR email"}
+          </strong>
+          . Sign in with the TrustLink account that uses that address, or ask the candidate to
+          update the HR contact on their draft.
+        </p>
+        <Link
+          href={`/login?callbackUrl=${encodeURIComponent(reviewPath)}`}
+          className={cn(
+            buttonVariants(),
+            "mt-6 inline-flex rounded-md bg-brand-blue text-white hover:bg-brand-blue/90 no-underline"
+          )}
+        >
+          Switch account
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+function LegacyReviewInvitationState() {
+  return (
+    <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center p-6">
+      <div className="w-full rounded-lg border border-slate-200 bg-white p-8 text-center">
+        <div className="mb-4 flex items-center justify-center">
+          <TrustLinkLogoMark />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-800">Invitation needs refresh</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          This review link was issued before secure HR sign-in was required. Ask the candidate to
+          resubmit the draft or send you a new HR review link from their TrustLink dashboard.
+        </p>
+      </div>
+    </main>
   );
 }
 

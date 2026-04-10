@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ReviewAccessGate } from "@/features/drafting/components/review-access-gate";
 import { ReviewDraftClient } from "@/features/drafting/components/review-draft-client";
 
 export const metadata: Metadata = {
@@ -13,5 +14,9 @@ export default async function ReviewDraftPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  return <ReviewDraftClient token={token} />;
+  return (
+    <ReviewAccessGate token={token}>
+      <ReviewDraftClient token={token} />
+    </ReviewAccessGate>
+  );
 }

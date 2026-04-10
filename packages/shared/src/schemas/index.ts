@@ -10,6 +10,7 @@ export {
 export {
   RegisterInputSchema,
   type RegisterInput,
+  type RegisterFormValues,
 } from "./register.schema";
 
 export {

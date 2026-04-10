@@ -36,31 +36,39 @@ export function VerifyCredentialClient({ hash }: { hash: string }) {
             <XCircle className="h-5 w-5 text-red-500" />
           )}
           <p className="text-sm font-medium text-slate-800">
-            {verified.revoked
-              ? "This credential has been revoked by the issuer and is no longer valid for verification."
-              : verified.valid
-                ? `This document matches the original record signed by ${verified.companyName}.`
-                : "Signature verification failed. This document may be tampered."}
+            {verified.purged
+              ? "This credential record has been minimized after the retention period. Personal details are no longer stored or displayed."
+              : verified.revoked
+                ? "This credential has been revoked by the issuer and is no longer valid for verification."
+                : verified.valid
+                  ? `This document matches the original record signed by ${verified.companyName}.`
+                  : "Signature verification failed. This document may be tampered."}
           </p>
         </div>
-        <dl className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-          <div>
-            <dt className="font-semibold">Candidate</dt>
-            <dd>{verified.candidateName}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold">Company</dt>
-            <dd>{verified.companyName}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold">Joining Date</dt>
-            <dd>{verified.joiningDate}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold">Relieving Date</dt>
-            <dd>{verified.relievingDate}</dd>
-          </div>
-        </dl>
+        {verified.purged ? (
+          <p className="text-sm text-slate-600">
+            Verification against the published hash may still be performed by parties who retain their own copy of the letter.
+          </p>
+        ) : (
+          <dl className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
+            <div>
+              <dt className="font-semibold">Candidate</dt>
+              <dd>{verified.candidateName}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold">Company</dt>
+              <dd>{verified.companyName}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold">Joining Date</dt>
+              <dd>{verified.joiningDate}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold">Relieving Date</dt>
+              <dd>{verified.relievingDate}</dd>
+            </div>
+          </dl>
+        )}
       </DashboardSectionCard>
     </main>
   );

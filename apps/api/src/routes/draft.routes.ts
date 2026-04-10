@@ -27,11 +27,15 @@ const draftController = new DraftController(draftService);
 router.post("/", draftCreateLimiter, requireAuth, draftController.createDraft);
 router.get(
   "/review/:token",
+  requireAuth,
+  checkRole(["HR"]),
   draftReviewReadLimiter,
   draftController.getReviewByToken
 );
 router.patch(
   "/review/:token",
+  requireAuth,
+  checkRole(["HR"]),
   draftReviewWriteLimiter,
   draftController.reviewByToken
 );

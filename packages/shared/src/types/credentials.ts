@@ -44,6 +44,8 @@ export interface VerifyCredentialDTO {
   hash: string;
   valid: boolean;
   revoked?: boolean;
+  /** Credential payload was minimized after retention; no personal details returned. */
+  purged?: boolean;
   candidateName: string;
   companyName: string;
   joiningDate: string;

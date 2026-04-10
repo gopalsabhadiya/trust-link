@@ -1,5 +1,6 @@
 import type { User as PrismaUser } from "@prisma/client";
 import type { RegisterInput, UserDTO } from "@trustlink/shared";
+import { env } from "../config";
 import { AppError } from "../middleware/error-handler";
 import { UserRepository } from "../repositories/user.repository";
 import { hashPassword, verifyPassword } from "./password.service";
@@ -13,6 +14,7 @@ function toUserDTO(user: PrismaUser): UserDTO {
     authProvider: user.authProvider,
     consentGiven: user.consentGiven,
     consentTimestamp: user.consentTimestamp,
+    consentPolicyVersion: user.consentPolicyVersion ?? null,
     profilePicture: user.profilePicture ?? null,
     notificationCount: 0,
     createdAt: user.createdAt,
@@ -50,6 +52,7 @@ export class AuthService {
       passwordHash,
       consentGiven: true,
       consentTimestamp: now,
+      consentPolicyVersion: input.consentPolicyVersion ?? env.PRIVACY_POLICY_VERSION,
     });
 
     return toUserDTO(user);
@@ -101,6 +104,7 @@ export class AuthService {
       externalId: input.externalId,
       consentGiven: true,
       consentTimestamp: now,
+      consentPolicyVersion: env.PRIVACY_POLICY_VERSION,
     });
 
     return toUserDTO(user);

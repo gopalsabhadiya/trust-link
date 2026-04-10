@@ -6,7 +6,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { UserRole } from "@trustlink/shared";
-import { RegisterInputSchema, type RegisterInput } from "@trustlink/shared";
+import {
+  DEFAULT_PRIVACY_POLICY_VERSION,
+  RegisterInputSchema,
+  type RegisterFormValues,
+} from "@trustlink/shared";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -57,7 +61,7 @@ export function RegisterForm() {
     control,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterInput>({
+  } = useForm<RegisterFormValues>({
     resolver: zodResolver(RegisterInputSchema),
     defaultValues: {
       fullName: "",
@@ -65,6 +69,11 @@ export function RegisterForm() {
       password: "",
       consent: false,
       role: "HR",
+      consentPolicyVersion:
+        typeof process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION === "string" &&
+        process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION.length > 0
+          ? process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION
+          : DEFAULT_PRIVACY_POLICY_VERSION,
     },
   });
 
@@ -78,14 +87,21 @@ export function RegisterForm() {
     setValue("role", selectedRole);
   }, [selectedRole, setValue]);
 
+  const emailHint = searchParams.get("email");
+  useEffect(() => {
+    if (emailHint) setValue("email", emailHint);
+  }, [emailHint, setValue]);
+
   const updateRoleInUrl = (role: AccountType) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("role", role);
     router.replace(`${pathname}?${next.toString()}`);
   };
 
+  const callbackUrl = searchParams.get("callbackUrl");
+
   const onSubmit = handleSubmit(async (values) => {
-    await submitRegistration(values);
+    await submitRegistration(RegisterInputSchema.parse(values), { callbackUrl });
   });
 
   const busy = isLoading || isSubmitting;

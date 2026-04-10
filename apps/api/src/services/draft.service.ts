@@ -1,4 +1,5 @@
 import {
+  ERROR_CODES,
   ExperienceLetterSchema,
   type VerifyCredentialDTO,
   type IssuedCredentialDTO,
@@ -12,6 +13,7 @@ import {
   type RegenerateReviewLinkDTO,
   type CredentialStatus,
   type ExperienceUiStatus,
+  compareExperienceCases,
 } from "@trustlink/shared";
 import { env } from "../config";
 import { AppError } from "../middleware";
@@ -19,7 +21,11 @@ import type { AuthRequestUser } from "../types/express";
 import { DraftRepository } from "../repositories/draft.repository";
 import { DraftNotificationService } from "./draft-notification.service";
 import { canonicalJSONStringify } from "../utils/canonical-json";
-import { generateMagicToken, hashMagicToken } from "../utils/magic-token";
+import { generateMagicToken, hashMagicToken, MAGIC_TOKEN_REGEX } from "../utils/magic-token";
+import {
+  maskHrReviewEmailForDisplay,
+  normalizeHrReviewEmail,
+} from "../utils/hr-review-email";
 import { SigningService } from "./signing.service";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -47,6 +53,8 @@ export class DraftService {
     const magicTokenHash = hashMagicToken(rawToken);
     const tokenExpiresAt = new Date(Date.now() + SEVEN_DAYS_MS);
 
+    const hrReviewEmail = normalizeHrReviewEmail(input.hrEmail);
+
     const { caseId, version } = await this.drafts.create({
       candidateId: authUser.id,
       companyName: content.companyName,
@@ -54,6 +62,7 @@ export class DraftService {
       magicTokenHash,
       tokenExpiresAt,
       consentLogged: Boolean(input.consentLogged),
+      hrReviewEmail,
     });
 
     const reviewLink = `${env.FRONTEND_URL}/review/${rawToken}`;
@@ -72,9 +81,22 @@ export class DraftService {
     };
   }
 
-  async getReviewByToken(token: string): Promise<DraftReviewPublicDTO> {
+  async getReviewByToken(
+    token: string,
+    authUser: AuthRequestUser
+  ): Promise<DraftReviewPublicDTO> {
     const version = await this.resolveActiveVersionFromToken(token);
+    this.assertHrCanReviewVersion(version, authUser);
     const parsedContent = ExperienceLetterSchema.parse(version.content);
+
+    const tokenHash = hashMagicToken(token);
+    await this.drafts.createComplianceAuditLog({
+      versionId: version.id,
+      action: "REVIEW_VIEW",
+      actorUserId: authUser.id,
+      actorMagicTokenHash: tokenHash,
+      privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
+    });
 
     return {
       id: version.caseId,
@@ -85,8 +107,13 @@ export class DraftService {
     };
   }
 
-  async submitReviewAction(token: string, input: DraftReviewMutationInput) {
+  async submitReviewAction(
+    token: string,
+    input: DraftReviewMutationInput,
+    authUser: AuthRequestUser
+  ) {
     const version = await this.resolveActiveVersionFromToken(token);
+    this.assertHrCanReviewVersion(version, authUser);
 
     if (
       version.status === "REVISIONS_REQUIRED" ||
@@ -125,6 +152,7 @@ export class DraftService {
       await this.drafts.createComplianceAuditLog({
         versionId: version.id,
         action: "CONSENT_TO_ISSUE",
+        actorUserId: authUser.id,
         actorMagicTokenHash: tokenHash,
         privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
       });
@@ -148,6 +176,7 @@ export class DraftService {
     await this.drafts.createComplianceAuditLog({
       versionId: version.id,
       action: "REQUEST_REVISION",
+      actorUserId: authUser.id,
       actorMagicTokenHash: tokenHash,
       privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
       notes: hrFeedback ?? undefined,
@@ -174,6 +203,14 @@ export class DraftService {
       throw new AppError(404, "NOT_FOUND", "Issued credential not found");
     }
 
+    if (snap.purgeStatus === "PURGED") {
+      throw new AppError(
+        404,
+        "NOT_FOUND",
+        "Issued credential is no longer available (data minimized per retention policy)."
+      );
+    }
+
     const content = ExperienceLetterSchema.parse(snap.contentSnapshot);
 
     return {
@@ -194,8 +231,30 @@ export class DraftService {
       throw new AppError(404, "NOT_FOUND", "Verification record not found");
     }
 
-    const content = ExperienceLetterSchema.parse(snap.contentSnapshot);
     const companyName = snap.case.company.name;
+
+    const purgedResponse = (): VerifyCredentialDTO => ({
+      hash,
+      valid: false,
+      purged: true,
+      revoked: false,
+      candidateName: "",
+      companyName: "No longer available",
+      joiningDate: "",
+      relievingDate: "",
+      signer: "No longer available",
+    });
+
+    if (snap.purgeStatus === "PURGED") {
+      return purgedResponse();
+    }
+
+    let content: ExperienceLetterInput;
+    try {
+      content = ExperienceLetterSchema.parse(snap.contentSnapshot);
+    } catch {
+      return purgedResponse();
+    }
 
     if (snap.revokedAt) {
       return {
@@ -240,8 +299,10 @@ export class DraftService {
     }
 
     const rows = await this.drafts.listCasesForCandidate(authUser.id);
-    const cases: CandidateExperienceCaseDTO[] = [];
-    const timeline: CandidateExperienceTimelineItemDTO[] = [];
+    const bundle: Array<{
+      c: CandidateExperienceCaseDTO;
+      t: CandidateExperienceTimelineItemDTO;
+    }> = [];
 
     let verifiedCredentialCount = 0;
     let pendingCredentialCount = 0;
@@ -259,8 +320,12 @@ export class DraftService {
 
       const snap = row.snapshots[0];
       const uiStatus = mapPrismaStatusToUiStatus(v.status, Boolean(snap));
+      const isSnapshotPurged = snap?.purgeStatus === "PURGED";
       const hasValidSignature = Boolean(
-        snap?.credentialHash && snap?.signature && snap.signature.length > 0
+        !isSnapshotPurged &&
+          snap?.credentialHash &&
+          snap?.signature &&
+          snap.signature.length > 0
       );
 
       if (uiStatus === "ISSUED" && hasValidSignature) verifiedCredentialCount += 1;
@@ -271,7 +336,7 @@ export class DraftService {
       const canCopyMagicLink =
         uiStatus === "SUBMITTED" || uiStatus === "HR_REVIEWING";
 
-      cases.push({
+      const caseDto: CandidateExperienceCaseDTO = {
         caseId: row.id,
         companyName: row.company.name,
         prismaStatus: v.status,
@@ -288,7 +353,7 @@ export class DraftService {
         designation: content?.designation ?? null,
         joiningDate: content?.joiningDate ?? null,
         relievingDate: content?.relievingDate ?? null,
-      });
+      };
 
       const employeeName = content?.employeeName ?? "Candidate";
       const tenureLabel =
@@ -296,35 +361,31 @@ export class DraftService {
           ? `${content.joiningDate} – ${content.relievingDate}`
           : "Tenure pending";
 
-      if (uiStatus === "ISSUED" && hasValidSignature) {
-        timeline.push({
-          caseId: row.id,
-          kind: "verified",
-          companyName: row.company.name,
-          employeeName,
-          tenureLabel,
-          issuedAt: snap!.issuedAt.toISOString(),
-        });
-      } else {
-        timeline.push({
-          caseId: row.id,
-          kind: "pending",
-          companyName: row.company.name,
-          employeeName,
-          tenureLabel,
-          issuedAt: null,
-        });
-      }
+      const timelineRow: CandidateExperienceTimelineItemDTO =
+        uiStatus === "ISSUED" && hasValidSignature
+          ? {
+              caseId: row.id,
+              kind: "verified",
+              companyName: row.company.name,
+              employeeName,
+              tenureLabel,
+              issuedAt: snap!.issuedAt.toISOString(),
+            }
+          : {
+              caseId: row.id,
+              kind: "pending",
+              companyName: row.company.name,
+              employeeName,
+              tenureLabel,
+              issuedAt: null,
+            };
+
+      bundle.push({ c: caseDto, t: timelineRow });
     }
 
-    timeline.sort((a, b) => {
-      if (a.kind === "verified" && b.kind === "verified" && a.issuedAt && b.issuedAt) {
-        return b.issuedAt.localeCompare(a.issuedAt);
-      }
-      if (a.kind === "verified" && b.kind !== "verified") return -1;
-      if (a.kind !== "verified" && b.kind === "verified") return 1;
-      return 0;
-    });
+    bundle.sort((a, b) => compareExperienceCases(a.c, b.c));
+    const cases = bundle.map((x) => x.c);
+    const timeline = bundle.map((x) => x.t);
 
     return {
       summary: {
@@ -381,6 +442,7 @@ export class DraftService {
       magicTokenHash,
       tokenExpiresAt,
       consentLogged: Boolean(input.consentLogged),
+      hrReviewEmail: normalizeHrReviewEmail(input.hrEmail),
     });
 
     if (!result) {
@@ -438,7 +500,7 @@ export class DraftService {
   }
 
   private async resolveActiveVersionFromToken(token: string) {
-    if (!/^[a-f0-9]{64}$/i.test(token)) {
+    if (!MAGIC_TOKEN_REGEX.test(token)) {
       throw new AppError(404, "NOT_FOUND", "Review link is invalid or expired");
     }
 
@@ -453,6 +515,30 @@ export class DraftService {
     }
 
     return version;
+  }
+
+  private assertHrCanReviewVersion(
+    version: { hrReviewEmail: string | null },
+    authUser: AuthRequestUser
+  ): void {
+    if (!version.hrReviewEmail) {
+      throw new AppError(
+        403,
+        ERROR_CODES.LEGACY_REVIEW_INVITATION,
+        "This review invitation must be reissued by the candidate. Ask them to resubmit or send a fresh HR link."
+      );
+    }
+    const expected = version.hrReviewEmail;
+    const actual = normalizeHrReviewEmail(authUser.email);
+    if (actual !== expected) {
+      const masked = maskHrReviewEmailForDisplay(expected);
+      throw new AppError(
+        403,
+        ERROR_CODES.REVIEW_EMAIL_MISMATCH,
+        `This review is restricted to ${masked}. Sign in with the TrustLink account that uses that email.`,
+        { invitedEmailMasked: masked }
+      );
+    }
   }
 }
 

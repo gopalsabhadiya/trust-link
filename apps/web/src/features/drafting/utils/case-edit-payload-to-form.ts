@@ -16,5 +16,6 @@ export function caseEditPayloadToFormValues(p: CaseEditPayloadDTO): ExperienceDr
     companyName: c.companyName,
     hrSignatoryName: c.hrSignatoryName,
     hrEmail: "",
+    dpdpConsent: false,
   };
 }

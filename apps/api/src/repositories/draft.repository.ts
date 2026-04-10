@@ -8,6 +8,7 @@ export interface CreateDraftInput {
   magicTokenHash: string;
   tokenExpiresAt: Date;
   consentLogged: boolean;
+  hrReviewEmail: string;
 }
 
 export interface CreateDraftResult {
@@ -48,6 +49,7 @@ export class DraftRepository {
           magicTokenHash: input.magicTokenHash,
           tokenExpiresAt: input.tokenExpiresAt,
           consentLogged: input.consentLogged,
+          hrReviewEmail: input.hrReviewEmail,
         },
       });
 
@@ -186,6 +188,7 @@ export class DraftRepository {
         data: {
           purgedAt: now,
           purgeStatus: "PURGED",
+          contentSnapshot: {},
         },
       }),
     ]);
@@ -222,6 +225,7 @@ export class DraftRepository {
             credentialHash: true,
             signature: true,
             issuedAt: true,
+            purgeStatus: true,
           },
         },
       },
@@ -242,13 +246,18 @@ export class DraftRepository {
     magicTokenHash: string;
     tokenExpiresAt: Date;
     consentLogged: boolean;
+    hrReviewEmail: string;
   }): Promise<CreateDraftResult | null> {
     return prisma.$transaction(async (tx) => {
       const caseRec = await tx.credentialCase.findFirst({
         where: { id: input.caseId, candidateId: input.candidateId },
         include: { currentVersion: true },
       });
-      if (!caseRec?.currentVersion || caseRec.currentVersion.status !== "REVISIONS_REQUIRED") {
+      const st = caseRec?.currentVersion?.status;
+      if (
+        !caseRec?.currentVersion ||
+        (st !== "REVISIONS_REQUIRED" && st !== "REJECTED")
+      ) {
         return null;
       }
 
@@ -267,6 +276,7 @@ export class DraftRepository {
           magicTokenHash: input.magicTokenHash,
           tokenExpiresAt: input.tokenExpiresAt,
           consentLogged: input.consentLogged,
+          hrReviewEmail: input.hrReviewEmail,
         },
       });
 

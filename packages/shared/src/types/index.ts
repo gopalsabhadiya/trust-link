@@ -7,6 +7,10 @@ export interface ApiResponse<T> {
   /** Present when `success` is true; otherwise typically `null`. */
   data: T | null;
   error: string | null;
+  /** Machine-readable code when `success` is false (e.g. review authorization). */
+  errorCode?: string;
+  /** Optional structured hints for clients (never include secrets). */
+  meta?: { invitedEmailMasked?: string };
 }
 
 /** Full user shape (includes sensitive fields only on server / never in API responses). */
@@ -32,6 +36,8 @@ export interface UserDTO {
   authProvider: AuthProvider;
   consentGiven: boolean;
   consentTimestamp: Date | null;
+  /** Privacy policy version in effect when consent was recorded, if known. */
+  consentPolicyVersion: string | null;
   profilePicture: string | null;
   notificationCount: number;
   createdAt: Date;

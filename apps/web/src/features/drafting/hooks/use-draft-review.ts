@@ -10,6 +10,7 @@ export function useDraftReview(token: string) {
     queryFn: () => fetchReviewDraft(token),
     enabled: Boolean(token),
     retry: false,
+    staleTime: 2 * 60 * 1000,
   });
 }
 

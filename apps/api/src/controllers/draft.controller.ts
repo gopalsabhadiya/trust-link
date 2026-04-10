@@ -10,9 +10,15 @@ import { DraftService } from "../services/draft.service";
 
 const CreateDraftRequestSchema = z
   .object({
-  content: ExperienceLetterSchema,
-  consentLogged: z.boolean(),
-  hrEmail: z.string().trim().email("Invalid HR email address"),
+    content: ExperienceLetterSchema,
+    consentLogged: z
+      .boolean()
+      .refine((v) => v === true, { message: "DPDP consent must be confirmed before submitting" }),
+    hrEmail: z
+      .string()
+      .trim()
+      .email("Invalid HR email address")
+      .transform((s) => s.trim().toLowerCase()),
   })
   .strict();
 
@@ -51,8 +57,14 @@ export class DraftController {
     next: NextFunction
   ): Promise<void> => {
     try {
+      if (!req.authUser) {
+        throw new AppError(401, "UNAUTHORIZED", "Not authenticated");
+      }
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
-      const result = await this.draftService.getReviewByToken(req.params.token);
+      const result = await this.draftService.getReviewByToken(
+        req.params.token,
+        req.authUser
+      );
       res.json({ success: true, data: result, error: null });
     } catch (error) {
       next(error);
@@ -65,6 +77,9 @@ export class DraftController {
     next: NextFunction
   ): Promise<void> => {
     try {
+      if (!req.authUser) {
+        throw new AppError(401, "UNAUTHORIZED", "Not authenticated");
+      }
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
       const parsed = DraftReviewMutationSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -77,7 +92,8 @@ export class DraftController {
 
       const result = await this.draftService.submitReviewAction(
         req.params.token,
-        parsed.data
+        parsed.data,
+        req.authUser
       );
       res.json({ success: true, data: result, error: null });
     } catch (error) {
