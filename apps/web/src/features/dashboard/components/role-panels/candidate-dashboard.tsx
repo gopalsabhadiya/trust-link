@@ -1,6 +1,8 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   BrandProgressBar,
   DashboardMetricCard,
@@ -41,7 +43,14 @@ export function CandidateDashboard() {
         title="Next steps"
         description="Complete your profile and request your first verifiable credential from an issuer."
       >
-        DPDP-aligned selective disclosure keeps you in control of who sees what.
+        <div className="flex flex-col gap-3">
+          <p>DPDP-aligned selective disclosure keeps you in control of who sees what.</p>
+          <Link href="/dashboard/drafts/new">
+            <Button className="rounded-md bg-brand-blue hover:bg-brand-blue/90">
+              Start Experience Letter Draft
+            </Button>
+          </Link>
+        </div>
       </DashboardSectionCard>
     </div>
   );

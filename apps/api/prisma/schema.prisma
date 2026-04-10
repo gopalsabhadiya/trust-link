@@ -39,6 +39,8 @@ model User {
   heldCredentials       VerifiableCredential[] @relation("Holder")
   verificationsSent     VerificationRequest[]  @relation("Verifier")
   verificationsReceived VerificationRequest[]  @relation("VerificationHolder")
+  credentialDrafts      CredentialDraft[]      @relation("CandidateDrafts")
+  consentActions        DraftConsentAudit[]    @relation("ConsentActor")
 
   @@index([authProvider, externalId])
   @@map("users")
@@ -67,6 +69,15 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum CredentialStatus {
+  DRAFT_SUBMITTED
+  HR_REVIEWING
+  HR_APPROVED
+  REVISIONS_REQUIRED
+  ISSUED
+  REJECTED
+}
+
 model VerificationRequest {
   id           String             @id @default(cuid())
   verifierId   String
@@ -81,4 +92,85 @@ model VerificationRequest {
   credential VerifiableCredential @relation(fields: [credentialId], references: [id])
 
   @@map("verification_requests")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  credentialDrafts CredentialDraft[]
+
+  @@map("companies")
+}
+
+model CredentialDraft {
+  id             String           @id @default(uuid())
+  candidateId    String
+  companyId      String
+  content        Json
+  status         CredentialStatus @default(DRAFT_SUBMITTED)
+  magicTokenHash String          @unique
+  tokenExpiresAt DateTime
+  consentLogged  Boolean         @default(false)
+  hrFeedback     String?
+  reviewedAt     DateTime?
+  credentialHash String?         @unique
+  signature      String?
+  signatoryPubKey String?
+  issuedAt       DateTime?
+  purgeAfterAt   DateTime?
+  purgedAt       DateTime?
+  purgeStatus    PurgeStatus      @default(NONE)
+  privacyPolicyVersion String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  candidate User    @relation("CandidateDrafts", fields: [candidateId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
+  consentAudits DraftConsentAudit[]
+  complianceLogs ComplianceAuditLog[]
+
+  @@index([tokenExpiresAt, status])
+  @@map("credential_drafts")
+}
+
+model DraftConsentAudit {
+  id                      String   @id @default(uuid())
+  draftId                 String
+  actorUserId             String
+  action                  CredentialStatus
+  consentStatementVersion String
+  consentCapturedAt       DateTime @default(now())
+  ipHash                  String?
+  userAgentHash           String?
+
+  draft     CredentialDraft @relation(fields: [draftId], references: [id])
+  actorUser User            @relation("ConsentActor", fields: [actorUserId], references: [id])
+
+  @@index([draftId, consentCapturedAt])
+  @@map("draft_consent_audits")
+}
+
+enum PurgeStatus {
+  NONE
+  SCHEDULED
+  PURGED
+}
+
+model ComplianceAuditLog {
+  id                    String   @id @default(uuid())
+  draftId               String
+  action                String
+  actorUserId           String?
+  actorMagicTokenHash   String?
+  privacyPolicyVersion  String
+  actionTimestamp       DateTime @default(now())
+  notes                 String?
+
+  draft CredentialDraft @relation(fields: [draftId], references: [id])
+
+  @@index([draftId, actionTimestamp])
+  @@map("compliance_audit_logs")
 }
