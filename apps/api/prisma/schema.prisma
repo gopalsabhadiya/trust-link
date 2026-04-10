@@ -28,9 +28,11 @@ model User {
   passwordHash     String?
   authProvider     AuthProvider @default(MANUAL)
   externalId       String?
-  consentGiven     Boolean      @default(false)
-  consentTimestamp DateTime?
-  profilePicture   String?
+  consentGiven          Boolean   @default(false)
+  consentTimestamp      DateTime?
+  /** Privacy policy version accepted with consent (e.g. DPDP-2026-v1). */
+  consentPolicyVersion  String?
+  profilePicture        String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

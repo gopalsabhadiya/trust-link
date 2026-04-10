@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CandidateExperienceCaseDTO, ExperienceUiStatus } from "@trustlink/shared";
+import { caseActivityTimestamp, compareExperienceCases } from "@trustlink/shared";
 import {
   Check,
   ClipboardCopy,
@@ -56,19 +57,6 @@ function uiStatusBadgeClass(status: ExperienceUiStatus): string {
   }
 }
 
-/** Recency for sorting: newest / most active first. */
-export function caseActivityTimestamp(c: CandidateExperienceCaseDTO): number {
-  if (c.uiStatus === "ISSUED") {
-    const end = c.relievingDate || c.joiningDate;
-    if (end) return new Date(end).getTime();
-    return 0;
-  }
-  if (c.reviewedAt) return new Date(c.reviewedAt).getTime();
-  if (c.tokenExpiresAt) return new Date(c.tokenExpiresAt).getTime();
-  if (c.joiningDate) return new Date(c.joiningDate).getTime();
-  return 0;
-}
-
 function TimelineNodeCreate() {
   return (
     <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-slate-400 bg-white text-slate-500 ring-4 ring-white">
@@ -105,13 +93,7 @@ type JourneyRow =
   | { kind: "case"; item: CandidateExperienceCaseDTO };
 
 function buildJourneyRows(cases: CandidateExperienceCaseDTO[]): JourneyRow[] {
-  const sorted = [...cases].sort((a, b) => {
-    const tb = caseActivityTimestamp(b);
-    const ta = caseActivityTimestamp(a);
-    if (tb !== ta) return tb - ta;
-    const doneRank = (x: CandidateExperienceCaseDTO) => (x.uiStatus === "ISSUED" ? 1 : 0);
-    return doneRank(a) - doneRank(b);
-  });
+  const sorted = [...cases].sort(compareExperienceCases);
   const rows: JourneyRow[] = [];
   let lastYear: number | null = null;
   for (const item of sorted) {

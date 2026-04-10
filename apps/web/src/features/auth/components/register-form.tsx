@@ -6,7 +6,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { UserRole } from "@trustlink/shared";
-import { RegisterInputSchema, type RegisterInput } from "@trustlink/shared";
+import {
+  DEFAULT_PRIVACY_POLICY_VERSION,
+  RegisterInputSchema,
+  type RegisterFormValues,
+} from "@trustlink/shared";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -57,7 +61,7 @@ export function RegisterForm() {
     control,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterInput>({
+  } = useForm<RegisterFormValues>({
     resolver: zodResolver(RegisterInputSchema),
     defaultValues: {
       fullName: "",
@@ -65,6 +69,11 @@ export function RegisterForm() {
       password: "",
       consent: false,
       role: "HR",
+      consentPolicyVersion:
+        typeof process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION === "string" &&
+        process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION.length > 0
+          ? process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION
+          : DEFAULT_PRIVACY_POLICY_VERSION,
     },
   });
 
@@ -85,7 +94,7 @@ export function RegisterForm() {
   };
 
   const onSubmit = handleSubmit(async (values) => {
-    await submitRegistration(values);
+    await submitRegistration(RegisterInputSchema.parse(values));
   });
 
   const busy = isLoading || isSubmitting;

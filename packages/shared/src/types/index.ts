@@ -32,6 +32,8 @@ export interface UserDTO {
   authProvider: AuthProvider;
   consentGiven: boolean;
   consentTimestamp: Date | null;
+  /** Privacy policy version in effect when consent was recorded, if known. */
+  consentPolicyVersion: string | null;
   profilePicture: string | null;
   notificationCount: number;
   createdAt: Date;

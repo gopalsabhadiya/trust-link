@@ -2,6 +2,12 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 const TOKEN_BYTES = 32;
 
+/** Hex-encoded token length (2 chars per byte). */
+export const MAGIC_TOKEN_HEX_LENGTH = TOKEN_BYTES * 2;
+
+/** Validates raw magic link token shape; updates automatically if `TOKEN_BYTES` changes. */
+export const MAGIC_TOKEN_REGEX = new RegExp(`^[a-f0-9]{${MAGIC_TOKEN_HEX_LENGTH}}$`, "i");
+
 export function generateMagicToken(): string {
   return randomBytes(TOKEN_BYTES).toString("hex");
 }

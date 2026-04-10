@@ -186,6 +186,7 @@ export class DraftRepository {
         data: {
           purgedAt: now,
           purgeStatus: "PURGED",
+          contentSnapshot: {},
         },
       }),
     ]);
@@ -222,6 +223,7 @@ export class DraftRepository {
             credentialHash: true,
             signature: true,
             issuedAt: true,
+            purgeStatus: true,
           },
         },
       },

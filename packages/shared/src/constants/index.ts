@@ -1,3 +1,5 @@
+export { DEFAULT_PRIVACY_POLICY_VERSION } from "./privacy";
+
 export const USER_ROLES = ["HR", "CANDIDATE", "RECRUITER"] as const;
 
 export const ERROR_CODES = {
