@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   Building2,
+  ClipboardList,
   FileText,
   LayoutDashboard,
   Link2,
@@ -23,7 +24,10 @@ const BASE_NAV: { href: string; label: string; icon: LucideIcon }[] = [
 ];
 
 const ROLE_EXTRA: Record<UserRole, { href: string; label: string; icon: LucideIcon }[]> = {
-  CANDIDATE: [{ href: "/dashboard/drafts/new", label: "Draft letter", icon: FileText }],
+  CANDIDATE: [
+    { href: "/dashboard/experience", label: "Experience", icon: ClipboardList },
+    { href: "/dashboard/drafts/new", label: "Draft letter", icon: FileText },
+  ],
   RECRUITER: [{ href: "#", label: "Candidate search", icon: UserSearch }],
   HR: [{ href: "#", label: "Team metrics", icon: Building2 }],
 };
@@ -71,17 +75,30 @@ export function DashboardSidebar({
         );
       })}
       {expanded &&
-        extra.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={label}
-            href={href}
-            onClick={onLinkClick}
-            className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-100"
-          >
-            <BrandIcon icon={Icon} variant="muted" size="md" />
-            {label}
-          </Link>
-        ))}
+        extra.map(({ href, label, icon: Icon }) => {
+          const roleLinkActive =
+            href !== "#" &&
+            (pathname === href ||
+              (href === "/dashboard/drafts/new" &&
+                (pathname === "/dashboard/drafts/new" ||
+                  pathname.startsWith("/dashboard/drafts/edit/"))));
+          return (
+            <Link
+              key={label}
+              href={href}
+              onClick={onLinkClick}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
+                roleLinkActive
+                  ? "border border-brand-blue-subtle bg-brand-blue-subtle text-[var(--color-brand-blue)]"
+                  : "border border-transparent text-slate-800 hover:bg-slate-100"
+              )}
+            >
+              <BrandIcon icon={Icon} variant={roleLinkActive ? "brand" : "muted"} size="md" />
+              {label}
+            </Link>
+          );
+        })}
     </nav>
   );
 

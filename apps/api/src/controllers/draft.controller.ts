@@ -113,4 +113,64 @@ export class DraftController {
       next(error);
     }
   };
+
+  getCaseEditPayload = async (
+    req: Request<{ caseId: string }>,
+    res: Response<ApiResponse<unknown>>,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      if (!req.authUser) {
+        throw new AppError(401, "UNAUTHORIZED", "Not authenticated");
+      }
+      const data = await this.draftService.getCaseEditPayload(req.params.caseId, req.authUser);
+      res.json({ success: true, data, error: null });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resubmitCase = async (
+    req: Request<{ caseId: string }>,
+    res: Response<ApiResponse<unknown>>,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      if (!req.authUser) {
+        throw new AppError(401, "UNAUTHORIZED", "Not authenticated");
+      }
+      const parsed = CreateDraftRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          parsed.error.errors.map((e) => e.message).join(", ")
+        );
+      }
+      const result = await this.draftService.resubmitCase(
+        req.params.caseId,
+        parsed.data,
+        req.authUser
+      );
+      res.status(201).json({ success: true, data: result, error: null });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  regenerateReviewLink = async (
+    req: Request<{ caseId: string }>,
+    res: Response<ApiResponse<unknown>>,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      if (!req.authUser) {
+        throw new AppError(401, "UNAUTHORIZED", "Not authenticated");
+      }
+      const data = await this.draftService.regenerateReviewLink(req.params.caseId, req.authUser);
+      res.json({ success: true, data, error: null });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

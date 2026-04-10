@@ -1,12 +1,16 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createCredentialDraft, type DraftApiValidationError } from "../api/drafts-api";
 
 export function useSubmitDraft() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["drafts", "create"],
     mutationFn: createCredentialDraft,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["candidate", "experience"] });
+    },
   });
 }
 

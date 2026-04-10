@@ -18,6 +18,7 @@ export type CredentialStatus =
 
 export type DraftReviewAction = "APPROVE" | "REQUEST_REVISION";
 
+/** `id` is the credential case id (stable for /dashboard/issued/[id]). */
 export interface DraftReviewPublicDTO {
   id: string;
   status: CredentialStatus;
@@ -40,6 +41,7 @@ export interface IssuedCredentialDTO {
 export interface VerifyCredentialDTO {
   hash: string;
   valid: boolean;
+  revoked?: boolean;
   candidateName: string;
   companyName: string;
   joiningDate: string;

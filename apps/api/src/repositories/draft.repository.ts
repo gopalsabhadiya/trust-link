@@ -1,4 +1,4 @@
-import type { CredentialDraft, CredentialStatus, Prisma } from "@prisma/client";
+import type { CredentialDraftVersion, CredentialStatus, Prisma } from "@prisma/client";
 import { prisma } from "../config";
 
 export interface CreateDraftInput {
@@ -10,8 +10,13 @@ export interface CreateDraftInput {
   consentLogged: boolean;
 }
 
+export interface CreateDraftResult {
+  caseId: string;
+  version: CredentialDraftVersion;
+}
+
 export class DraftRepository {
-  async create(input: CreateDraftInput): Promise<CredentialDraft> {
+  async create(input: CreateDraftInput): Promise<CreateDraftResult> {
     const existingCompany = await prisma.company.findFirst({
       where: { name: input.companyName },
       select: { id: true },
@@ -26,44 +31,74 @@ export class DraftRepository {
         })
       ).id;
 
-    return prisma.credentialDraft.create({
-      data: {
-        candidateId: input.candidateId,
-        companyId,
-        content: input.content,
-        status: "DRAFT_SUBMITTED",
-        magicTokenHash: input.magicTokenHash,
-        tokenExpiresAt: input.tokenExpiresAt,
-        consentLogged: input.consentLogged,
+    return prisma.$transaction(async (tx) => {
+      const caseRec = await tx.credentialCase.create({
+        data: {
+          candidateId: input.candidateId,
+          companyId,
+        },
+      });
+
+      const version = await tx.credentialDraftVersion.create({
+        data: {
+          caseId: caseRec.id,
+          versionNumber: 1,
+          content: input.content,
+          status: "DRAFT_SUBMITTED",
+          magicTokenHash: input.magicTokenHash,
+          tokenExpiresAt: input.tokenExpiresAt,
+          consentLogged: input.consentLogged,
+        },
+      });
+
+      await tx.credentialCase.update({
+        where: { id: caseRec.id },
+        data: { currentVersionId: version.id },
+      });
+
+      return { caseId: caseRec.id, version };
+    });
+  }
+
+  findVersionByTokenHash(magicTokenHash: string) {
+    return prisma.credentialDraftVersion.findUnique({
+      where: { magicTokenHash },
+      include: { case: true },
+    });
+  }
+
+  findCaseByIdWithRelations(id: string) {
+    return prisma.credentialCase.findUnique({
+      where: { id },
+      include: {
+        company: true,
+        candidate: true,
+        snapshots: {
+          where: { revokedAt: null },
+          orderBy: { issuedAt: "desc" },
+          take: 1,
+        },
       },
     });
   }
 
-  findByTokenHash(magicTokenHash: string): Promise<CredentialDraft | null> {
-    return prisma.credentialDraft.findUnique({ where: { magicTokenHash } });
-  }
-
-  findByIdWithCompanyAndCandidate(id: string) {
-    return prisma.credentialDraft.findUnique({
-      where: { id },
-      include: { company: true, candidate: true },
-    });
-  }
-
-  findByCredentialHash(hash: string) {
-    return prisma.credentialDraft.findUnique({
+  findSnapshotByCredentialHash(hash: string) {
+    return prisma.issuedCredentialSnapshot.findUnique({
       where: { credentialHash: hash },
-      include: { company: true, candidate: true },
+      include: {
+        case: { include: { company: true } },
+        version: true,
+      },
     });
   }
 
   updateReviewResult(
-    id: string,
+    versionId: string,
     status: CredentialStatus,
     hrFeedback: string | null
-  ): Promise<CredentialDraft> {
-    return prisma.credentialDraft.update({
-      where: { id },
+  ): Promise<CredentialDraftVersion> {
+    return prisma.credentialDraftVersion.update({
+      where: { id: versionId },
       data: {
         status,
         hrFeedback,
@@ -72,31 +107,44 @@ export class DraftRepository {
     });
   }
 
-  issueDraft(input: {
-    id: string;
+  issueFromVersion(input: {
+    versionId: string;
+    caseId: string;
+    contentSnapshot: Prisma.InputJsonValue;
     credentialHash: string;
     signature: string;
     signatoryPubKey: string;
     privacyPolicyVersion: string;
     purgeAfterAt: Date;
-  }): Promise<CredentialDraft> {
-    return prisma.credentialDraft.update({
-      where: { id: input.id },
-      data: {
-        status: "ISSUED",
-        credentialHash: input.credentialHash,
-        signature: input.signature,
-        signatoryPubKey: input.signatoryPubKey,
-        issuedAt: new Date(),
-        privacyPolicyVersion: input.privacyPolicyVersion,
-        purgeAfterAt: input.purgeAfterAt,
-        purgeStatus: "SCHEDULED",
-      },
+  }): Promise<CredentialDraftVersion> {
+    return prisma.$transaction(async (tx) => {
+      await tx.issuedCredentialSnapshot.create({
+        data: {
+          caseId: input.caseId,
+          sourceVersionId: input.versionId,
+          credentialHash: input.credentialHash,
+          signature: input.signature,
+          signatoryPubKey: input.signatoryPubKey,
+          contentSnapshot: input.contentSnapshot,
+          privacyPolicyVersion: input.privacyPolicyVersion,
+          purgeAfterAt: input.purgeAfterAt,
+          purgeStatus: "SCHEDULED",
+        },
+      });
+
+      return tx.credentialDraftVersion.update({
+        where: { id: input.versionId },
+        data: {
+          status: "ISSUED",
+          magicTokenHash: null,
+          tokenExpiresAt: null,
+        },
+      });
     });
   }
 
   async createComplianceAuditLog(input: {
-    draftId: string;
+    versionId: string;
     action: string;
     actorUserId?: string;
     actorMagicTokenHash?: string;
@@ -105,7 +153,7 @@ export class DraftRepository {
   }): Promise<void> {
     await prisma.complianceAuditLog.create({
       data: {
-        draftId: input.draftId,
+        versionId: input.versionId,
         action: input.action,
         actorUserId: input.actorUserId,
         actorMagicTokenHash: input.actorMagicTokenHash,
@@ -116,17 +164,129 @@ export class DraftRepository {
   }
 
   async runSoftPurge(now: Date): Promise<number> {
-    const result = await prisma.credentialDraft.updateMany({
+    const due = await prisma.issuedCredentialSnapshot.findMany({
       where: {
         purgeStatus: "SCHEDULED",
         purgeAfterAt: { lte: now },
       },
+      select: { id: true, sourceVersionId: true },
+    });
+
+    if (due.length === 0) return 0;
+
+    const versionIds = due.map((d) => d.sourceVersionId);
+
+    await prisma.$transaction([
+      prisma.credentialDraftVersion.updateMany({
+        where: { id: { in: versionIds } },
+        data: { content: {} },
+      }),
+      prisma.issuedCredentialSnapshot.updateMany({
+        where: { id: { in: due.map((d) => d.id) } },
+        data: {
+          purgedAt: now,
+          purgeStatus: "PURGED",
+        },
+      }),
+    ]);
+
+    return due.length;
+  }
+
+  async revokeSnapshotByHash(
+    credentialHash: string,
+    reason: string
+  ): Promise<void> {
+    await prisma.issuedCredentialSnapshot.update({
+      where: { credentialHash },
       data: {
-        content: {},
-        purgedAt: now,
-        purgeStatus: "PURGED",
+        revokedAt: new Date(),
+        revocationReason: reason,
       },
     });
-    return result.count;
+  }
+
+  listCasesForCandidate(candidateId: string) {
+    return prisma.credentialCase.findMany({
+      where: { candidateId },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+      include: {
+        company: { select: { name: true } },
+        currentVersion: true,
+        snapshots: {
+          where: { revokedAt: null },
+          orderBy: { issuedAt: "desc" },
+          take: 1,
+          select: {
+            credentialHash: true,
+            signature: true,
+            issuedAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  findCaseForCandidate(caseId: string, candidateId: string) {
+    return prisma.credentialCase.findFirst({
+      where: { id: caseId, candidateId },
+      include: { currentVersion: true },
+    });
+  }
+
+  async appendResubmitVersion(input: {
+    caseId: string;
+    candidateId: string;
+    content: Prisma.InputJsonValue;
+    magicTokenHash: string;
+    tokenExpiresAt: Date;
+    consentLogged: boolean;
+  }): Promise<CreateDraftResult | null> {
+    return prisma.$transaction(async (tx) => {
+      const caseRec = await tx.credentialCase.findFirst({
+        where: { id: input.caseId, candidateId: input.candidateId },
+        include: { currentVersion: true },
+      });
+      if (!caseRec?.currentVersion || caseRec.currentVersion.status !== "REVISIONS_REQUIRED") {
+        return null;
+      }
+
+      const agg = await tx.credentialDraftVersion.aggregate({
+        where: { caseId: input.caseId },
+        _max: { versionNumber: true },
+      });
+      const nextNum = (agg._max.versionNumber ?? 0) + 1;
+
+      const version = await tx.credentialDraftVersion.create({
+        data: {
+          caseId: input.caseId,
+          versionNumber: nextNum,
+          content: input.content,
+          status: "DRAFT_SUBMITTED",
+          magicTokenHash: input.magicTokenHash,
+          tokenExpiresAt: input.tokenExpiresAt,
+          consentLogged: input.consentLogged,
+        },
+      });
+
+      await tx.credentialCase.update({
+        where: { id: input.caseId },
+        data: { currentVersionId: version.id },
+      });
+
+      return { caseId: caseRec.id, version };
+    });
+  }
+
+  async updateVersionMagicLink(
+    versionId: string,
+    magicTokenHash: string,
+    tokenExpiresAt: Date
+  ): Promise<void> {
+    await prisma.credentialDraftVersion.update({
+      where: { id: versionId },
+      data: { magicTokenHash, tokenExpiresAt },
+    });
   }
 }

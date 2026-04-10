@@ -67,3 +67,13 @@ export type {
   IssuedCredentialDTO,
   VerifyCredentialDTO,
 } from "./credentials";
+
+export type {
+  ExperienceUiStatus,
+  CandidateExperienceSummaryDTO,
+  CandidateExperienceCaseDTO,
+  CandidateExperienceTimelineItemDTO,
+  CandidateExperienceResponseDTO,
+  CaseEditPayloadDTO,
+  RegenerateReviewLinkDTO,
+} from "./experience";

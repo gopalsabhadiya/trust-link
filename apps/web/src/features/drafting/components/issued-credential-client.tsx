@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { CheckCircle2, Download, ShieldCheck } from "lucide-react";
-import { jsPDF } from "jspdf";
-import QRCode from "qrcode";
 import { toast } from "sonner";
+import { downloadIssuedCredentialPdf } from "@/lib/download-issued-pdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DashboardPageHeader, DashboardSectionCard } from "@/components/brand";
@@ -86,24 +85,7 @@ export function IssuedCredentialClient({ id }: { id: string }) {
             onClick={async () => {
               try {
                 setIsDownloading(true);
-                const doc = new jsPDF();
-                doc.setFontSize(18);
-                doc.text("TrustLink Experience Letter", 20, 20);
-                doc.setFontSize(12);
-                doc.text(`Candidate: ${credential.content.employeeName}`, 20, 35);
-                doc.text(`Company: ${credential.companyName}`, 20, 44);
-                doc.text(
-                  `Tenure: ${credential.content.joiningDate} - ${credential.content.relievingDate}`,
-                  20,
-                  53
-                );
-                doc.text(`Hash: ${credential.credentialHash}`, 20, 65, { maxWidth: 170 });
-
-                const qrData = await QRCode.toDataURL(verifyLink, { margin: 1, width: 200 });
-                doc.addImage(qrData, "PNG", 20, 80, 45, 45);
-                doc.text("Scan QR to verify", 20, 130);
-
-                doc.save(`trustlink-issued-${credential.id}.pdf`);
+                await downloadIssuedCredentialPdf(credential, verifyLink);
               } catch (error) {
                 toast.error(error instanceof Error ? error.message : "Failed to generate PDF");
               } finally {

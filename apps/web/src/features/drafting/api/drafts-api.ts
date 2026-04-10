@@ -1,10 +1,13 @@
 import axios, { type AxiosError } from "axios";
 import type {
   ApiResponse,
+  CandidateExperienceResponseDTO,
+  CaseEditPayloadDTO,
   DraftReviewMutationInput,
   DraftReviewPublicDTO,
   ExperienceLetterInput,
   IssuedCredentialDTO,
+  RegenerateReviewLinkDTO,
   VerifyCredentialDTO,
 } from "@trustlink/shared";
 
@@ -115,6 +118,58 @@ export async function verifyCredentialHash(hash: string): Promise<VerifyCredenti
     return data.data;
   } catch (error) {
     throw normalizeDraftError(error, "Could not verify credential");
+  }
+}
+
+export async function fetchCandidateExperience(): Promise<CandidateExperienceResponseDTO> {
+  try {
+    const { data } = await draftsClient.get<ApiResponse<CandidateExperienceResponseDTO>>(
+      "/candidate/experience"
+    );
+    if (!data.success || !data.data) throw new Error(data.error ?? "Could not load experience");
+    return data.data;
+  } catch (error) {
+    throw normalizeDraftError(error, "Could not load experience");
+  }
+}
+
+export async function fetchCaseEditPayload(caseId: string): Promise<CaseEditPayloadDTO> {
+  try {
+    const { data } = await draftsClient.get<ApiResponse<CaseEditPayloadDTO>>(
+      `/drafts/cases/${caseId}/edit-payload`
+    );
+    if (!data.success || !data.data) throw new Error(data.error ?? "Could not load draft");
+    return data.data;
+  } catch (error) {
+    throw normalizeDraftError(error, "Could not load draft for editing");
+  }
+}
+
+export async function resubmitCase(
+  caseId: string,
+  payload: CreateDraftPayload
+): Promise<CreateDraftResponse> {
+  try {
+    const { data } = await draftsClient.post<ApiResponse<CreateDraftResponse>>(
+      `/drafts/cases/${caseId}/resubmit`,
+      payload
+    );
+    if (!data.success || !data.data) throw new Error(data.error ?? "Resubmit failed");
+    return data.data;
+  } catch (error) {
+    throw normalizeDraftError(error, "Could not resubmit draft");
+  }
+}
+
+export async function regenerateReviewLink(caseId: string): Promise<RegenerateReviewLinkDTO> {
+  try {
+    const { data } = await draftsClient.post<ApiResponse<RegenerateReviewLinkDTO>>(
+      `/drafts/cases/${caseId}/regenerate-review-link`
+    );
+    if (!data.success || !data.data) throw new Error(data.error ?? "Could not regenerate link");
+    return data.data;
+  } catch (error) {
+    throw normalizeDraftError(error, "Could not regenerate review link");
   }
 }
 

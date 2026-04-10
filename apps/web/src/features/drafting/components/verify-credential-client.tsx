@@ -36,9 +36,11 @@ export function VerifyCredentialClient({ hash }: { hash: string }) {
             <XCircle className="h-5 w-5 text-red-500" />
           )}
           <p className="text-sm font-medium text-slate-800">
-            {verified.valid
-              ? `This document matches the original record signed by ${verified.companyName}.`
-              : "Signature verification failed. This document may be tampered."}
+            {verified.revoked
+              ? "This credential has been revoked by the issuer and is no longer valid for verification."
+              : verified.valid
+                ? `This document matches the original record signed by ${verified.companyName}.`
+                : "Signature verification failed. This document may be tampered."}
           </p>
         </div>
         <dl className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">

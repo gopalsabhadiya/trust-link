@@ -1,6 +1,7 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ExperienceLetterSchema, type ExperienceLetterInput } from "@trustlink/shared";
@@ -12,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CredentialPreview } from "./credential-preview";
 import { isDraftApiValidationError, useSubmitDraft } from "../hooks/use-submit-draft";
+import { useResubmitDraft } from "../hooks/use-resubmit-draft";
 
 const DEFAULT_VALUES: ExperienceLetterInput = {
   employeeName: "",
@@ -36,29 +38,47 @@ const DraftFormSchema = z.object({
   hrEmail: z.string().trim().email("Valid HR email is required"),
 });
 
-type DraftFormValues = z.infer<typeof DraftFormSchema>;
+export type ExperienceDraftFormValues = z.infer<typeof DraftFormSchema>;
 
-const DEFAULT_FORM_VALUES: DraftFormValues = {
+const DEFAULT_FORM_VALUES: ExperienceDraftFormValues = {
   ...DEFAULT_VALUES,
   keyAchievements: [{ value: "" }],
   hrEmail: "",
 };
 
-export function ExperienceLetterDraftForm() {
+export function ExperienceLetterDraftForm({
+  mode = "create",
+  caseId,
+  initialValues = null,
+  hrFeedback = null,
+}: {
+  mode?: "create" | "resubmit";
+  caseId?: string;
+  initialValues?: ExperienceDraftFormValues | null;
+  hrFeedback?: string | null;
+} = {}) {
+  const router = useRouter();
   const [mobileView, setMobileView] = useState<"form" | "preview">("form");
   const submitDraft = useSubmitDraft();
+  const resubmitDraft = useResubmitDraft();
 
   const {
     control,
     register,
     setError,
+    reset,
     handleSubmit,
     formState: { errors },
-  } = useForm<DraftFormValues>({
+  } = useForm<ExperienceDraftFormValues>({
     resolver: zodResolver(DraftFormSchema),
     defaultValues: DEFAULT_FORM_VALUES,
     mode: "onChange",
   });
+
+  useEffect(() => {
+    if (mode !== "resubmit" || !initialValues) return;
+    reset(initialValues);
+  }, [mode, initialValues, reset]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -86,6 +106,23 @@ export function ExperienceLetterDraftForm() {
         keyAchievements: values.keyAchievements.map((item) => item.value),
       };
       const parsedPayload = ExperienceLetterSchema.parse(normalizedPayload);
+      if (mode === "resubmit") {
+        if (!caseId) {
+          toast.error("Missing case. Please return to Experience and try again.");
+          return;
+        }
+        await resubmitDraft.mutateAsync({
+          caseId,
+          payload: {
+            content: parsedPayload,
+            consentLogged: true,
+            hrEmail: values.hrEmail,
+          },
+        });
+        toast.success("Resubmitted. A fresh review link was sent to your HR contact.");
+        router.push("/dashboard/experience");
+        return;
+      }
       await submitDraft.mutateAsync({
         content: parsedPayload,
         consentLogged: true,
@@ -95,14 +132,21 @@ export function ExperienceLetterDraftForm() {
     } catch (error) {
       if (isDraftApiValidationError(error)) {
         for (const [field, message] of Object.entries(error.fieldErrors ?? {})) {
-          setError(field as keyof DraftFormValues, { message });
+          setError(field as keyof ExperienceDraftFormValues, { message });
         }
         toast.error(error.message);
         return;
       }
-      toast.error("Could not submit draft. Please try again.");
+      toast.error(
+        mode === "resubmit"
+          ? "Could not resubmit. Please try again."
+          : "Could not submit draft. Please try again."
+      );
     }
   });
+
+  const isSubmitting =
+    mode === "resubmit" ? resubmitDraft.isPending : submitDraft.isPending;
 
   return (
     <div className="space-y-4">
@@ -131,11 +175,22 @@ export function ExperienceLetterDraftForm() {
           className={mobileView === "preview" ? "hidden md:block" : "space-y-4"}
         >
           <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">Experience Letter Draft</h3>
+            <h3 className="text-sm font-semibold text-slate-800">
+              {mode === "resubmit" ? "Resubmit for HR review" : "Experience Letter Draft"}
+            </h3>
             <p className="mt-1 text-xs text-slate-500">
-              Fill all fields and submit for HR review.
+              {mode === "resubmit"
+                ? "Update your letter and confirm your HR contact email. A new review link will be issued."
+                : "Fill all fields and submit for HR review."}
             </p>
           </div>
+
+          {mode === "resubmit" && hrFeedback ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="font-medium">HR feedback</p>
+              <p className="mt-1 whitespace-pre-wrap text-amber-900/90">{hrFeedback}</p>
+            </div>
+          ) : null}
 
           <div className="space-y-1.5">
             <Label htmlFor="employeeName">Employee Name</Label>
@@ -234,13 +289,15 @@ export function ExperienceLetterDraftForm() {
           <Button
             type="submit"
             className="w-full rounded-md bg-brand-blue hover:bg-brand-blue/90"
-            disabled={submitDraft.isPending}
+            disabled={isSubmitting}
           >
-            {submitDraft.isPending ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
+                {mode === "resubmit" ? "Resubmitting..." : "Submitting..."}
               </>
+            ) : mode === "resubmit" ? (
+              "Resubmit for review"
             ) : (
               "Submit for Review"
             )}
