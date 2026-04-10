@@ -87,14 +87,21 @@ export function RegisterForm() {
     setValue("role", selectedRole);
   }, [selectedRole, setValue]);
 
+  const emailHint = searchParams.get("email");
+  useEffect(() => {
+    if (emailHint) setValue("email", emailHint);
+  }, [emailHint, setValue]);
+
   const updateRoleInUrl = (role: AccountType) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("role", role);
     router.replace(`${pathname}?${next.toString()}`);
   };
 
+  const callbackUrl = searchParams.get("callbackUrl");
+
   const onSubmit = handleSubmit(async (values) => {
-    await submitRegistration(RegisterInputSchema.parse(values));
+    await submitRegistration(RegisterInputSchema.parse(values), { callbackUrl });
   });
 
   const busy = isLoading || isSubmitting;

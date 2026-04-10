@@ -11,6 +11,10 @@ export const ERROR_CODES = {
   CREDENTIAL_REVOKED: "CREDENTIAL_REVOKED",
   CREDENTIAL_EXPIRED: "CREDENTIAL_EXPIRED",
   VERIFICATION_FAILED: "VERIFICATION_FAILED",
+  /** Logged-in HR email does not match the invited reviewer on this draft. */
+  REVIEW_EMAIL_MISMATCH: "REVIEW_EMAIL_MISMATCH",
+  /** Draft predates stored reviewer email; candidate must resubmit or regenerate link. */
+  LEGACY_REVIEW_INVITATION: "LEGACY_REVIEW_INVITATION",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

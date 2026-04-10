@@ -7,7 +7,8 @@ export class AppError extends Error {
   constructor(
     public statusCode: number,
     public errorCode: string,
-    message: string
+    message: string,
+    public meta?: { invitedEmailMasked?: string }
   ) {
     super(message);
     this.name = "AppError";
@@ -30,11 +31,14 @@ export function errorHandler(
   }
 
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({
+    const body: ApiResponse<null> = {
       success: false,
       data: null,
       error: err.message,
-    });
+      errorCode: err.errorCode,
+      ...(err.meta ? { meta: err.meta } : {}),
+    };
+    res.status(err.statusCode).json(body);
     return;
   }
 

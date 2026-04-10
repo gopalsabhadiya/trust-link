@@ -1,7 +1,8 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,13 +11,20 @@ import { SocialLoginButtons } from "./social-login-buttons";
 import { useAuth } from "../hooks/use-auth";
 
 export function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
+  const emailHint = searchParams.get("email");
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+    if (emailHint) setEmail(emailHint);
+  }, [emailHint]);
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    login({ email, password });
+    login({ email, password }, { callbackUrl });
   };
 
   return (
@@ -92,7 +100,16 @@ export function LoginForm() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <Link href="/register" className="font-medium text-brand-blue hover:underline">
+        <Link
+          href={
+            callbackUrl
+              ? callbackUrl.includes("/review/")
+                ? `/register?role=HR&callbackUrl=${encodeURIComponent(callbackUrl)}`
+                : `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
+              : "/register"
+          }
+          className="font-medium text-brand-blue hover:underline"
+        >
           Create one
         </Link>
       </p>

@@ -1,4 +1,5 @@
 import rateLimit from "express-rate-limit";
+import type { Request } from "express";
 
 export const authRegisterLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -29,7 +30,11 @@ export const draftReviewReadLimiter = rateLimit({
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${req.ip}:${String(req.params.token ?? "")}`,
+  keyGenerator: (req) => {
+    const r = req as Request;
+    const uid = r.authUser?.id ?? r.ip ?? "anon";
+    return `${uid}:${String(r.params.token ?? "")}`;
+  },
   message: { success: false, data: null, error: "Too many review requests" },
 });
 
@@ -38,6 +43,10 @@ export const draftReviewWriteLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${req.ip}:${String(req.params.token ?? "")}`,
+  keyGenerator: (req) => {
+    const r = req as Request;
+    const uid = r.authUser?.id ?? r.ip ?? "anon";
+    return `${uid}:${String(r.params.token ?? "")}`;
+  },
   message: { success: false, data: null, error: "Too many review actions" },
 });

@@ -137,6 +137,8 @@ model CredentialDraftVersion {
   magicTokenHash String?          @unique
   tokenExpiresAt DateTime?
   consentLogged  Boolean          @default(false)
+  /// Normalized reviewer email from candidate submission (HR authZ).
+  hrReviewEmail  String?
   hrFeedback     String?
   reviewedAt     DateTime?
   createdAt      DateTime         @default(now())

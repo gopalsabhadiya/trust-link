@@ -1,4 +1,5 @@
 import {
+  ERROR_CODES,
   ExperienceLetterSchema,
   type VerifyCredentialDTO,
   type IssuedCredentialDTO,
@@ -21,6 +22,10 @@ import { DraftRepository } from "../repositories/draft.repository";
 import { DraftNotificationService } from "./draft-notification.service";
 import { canonicalJSONStringify } from "../utils/canonical-json";
 import { generateMagicToken, hashMagicToken, MAGIC_TOKEN_REGEX } from "../utils/magic-token";
+import {
+  maskHrReviewEmailForDisplay,
+  normalizeHrReviewEmail,
+} from "../utils/hr-review-email";
 import { SigningService } from "./signing.service";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -48,6 +53,8 @@ export class DraftService {
     const magicTokenHash = hashMagicToken(rawToken);
     const tokenExpiresAt = new Date(Date.now() + SEVEN_DAYS_MS);
 
+    const hrReviewEmail = normalizeHrReviewEmail(input.hrEmail);
+
     const { caseId, version } = await this.drafts.create({
       candidateId: authUser.id,
       companyName: content.companyName,
@@ -55,6 +62,7 @@ export class DraftService {
       magicTokenHash,
       tokenExpiresAt,
       consentLogged: Boolean(input.consentLogged),
+      hrReviewEmail,
     });
 
     const reviewLink = `${env.FRONTEND_URL}/review/${rawToken}`;
@@ -73,9 +81,22 @@ export class DraftService {
     };
   }
 
-  async getReviewByToken(token: string): Promise<DraftReviewPublicDTO> {
+  async getReviewByToken(
+    token: string,
+    authUser: AuthRequestUser
+  ): Promise<DraftReviewPublicDTO> {
     const version = await this.resolveActiveVersionFromToken(token);
+    this.assertHrCanReviewVersion(version, authUser);
     const parsedContent = ExperienceLetterSchema.parse(version.content);
+
+    const tokenHash = hashMagicToken(token);
+    await this.drafts.createComplianceAuditLog({
+      versionId: version.id,
+      action: "REVIEW_VIEW",
+      actorUserId: authUser.id,
+      actorMagicTokenHash: tokenHash,
+      privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
+    });
 
     return {
       id: version.caseId,
@@ -86,8 +107,13 @@ export class DraftService {
     };
   }
 
-  async submitReviewAction(token: string, input: DraftReviewMutationInput) {
+  async submitReviewAction(
+    token: string,
+    input: DraftReviewMutationInput,
+    authUser: AuthRequestUser
+  ) {
     const version = await this.resolveActiveVersionFromToken(token);
+    this.assertHrCanReviewVersion(version, authUser);
 
     if (
       version.status === "REVISIONS_REQUIRED" ||
@@ -126,6 +152,7 @@ export class DraftService {
       await this.drafts.createComplianceAuditLog({
         versionId: version.id,
         action: "CONSENT_TO_ISSUE",
+        actorUserId: authUser.id,
         actorMagicTokenHash: tokenHash,
         privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
       });
@@ -149,6 +176,7 @@ export class DraftService {
     await this.drafts.createComplianceAuditLog({
       versionId: version.id,
       action: "REQUEST_REVISION",
+      actorUserId: authUser.id,
       actorMagicTokenHash: tokenHash,
       privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
       notes: hrFeedback ?? undefined,
@@ -414,6 +442,7 @@ export class DraftService {
       magicTokenHash,
       tokenExpiresAt,
       consentLogged: Boolean(input.consentLogged),
+      hrReviewEmail: normalizeHrReviewEmail(input.hrEmail),
     });
 
     if (!result) {
@@ -486,6 +515,30 @@ export class DraftService {
     }
 
     return version;
+  }
+
+  private assertHrCanReviewVersion(
+    version: { hrReviewEmail: string | null },
+    authUser: AuthRequestUser
+  ): void {
+    if (!version.hrReviewEmail) {
+      throw new AppError(
+        403,
+        ERROR_CODES.LEGACY_REVIEW_INVITATION,
+        "This review invitation must be reissued by the candidate. Ask them to resubmit or send a fresh HR link."
+      );
+    }
+    const expected = version.hrReviewEmail;
+    const actual = normalizeHrReviewEmail(authUser.email);
+    if (actual !== expected) {
+      const masked = maskHrReviewEmailForDisplay(expected);
+      throw new AppError(
+        403,
+        ERROR_CODES.REVIEW_EMAIL_MISMATCH,
+        `This review is restricted to ${masked}. Sign in with the TrustLink account that uses that email.`,
+        { invitedEmailMasked: masked }
+      );
+    }
   }
 }
 

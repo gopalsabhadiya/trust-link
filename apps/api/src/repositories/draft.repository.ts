@@ -8,6 +8,7 @@ export interface CreateDraftInput {
   magicTokenHash: string;
   tokenExpiresAt: Date;
   consentLogged: boolean;
+  hrReviewEmail: string;
 }
 
 export interface CreateDraftResult {
@@ -48,6 +49,7 @@ export class DraftRepository {
           magicTokenHash: input.magicTokenHash,
           tokenExpiresAt: input.tokenExpiresAt,
           consentLogged: input.consentLogged,
+          hrReviewEmail: input.hrReviewEmail,
         },
       });
 
@@ -244,6 +246,7 @@ export class DraftRepository {
     magicTokenHash: string;
     tokenExpiresAt: Date;
     consentLogged: boolean;
+    hrReviewEmail: string;
   }): Promise<CreateDraftResult | null> {
     return prisma.$transaction(async (tx) => {
       const caseRec = await tx.credentialCase.findFirst({
@@ -273,6 +276,7 @@ export class DraftRepository {
           magicTokenHash: input.magicTokenHash,
           tokenExpiresAt: input.tokenExpiresAt,
           consentLogged: input.consentLogged,
+          hrReviewEmail: input.hrReviewEmail,
         },
       });
 
