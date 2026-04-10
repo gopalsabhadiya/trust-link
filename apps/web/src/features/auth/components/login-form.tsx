@@ -49,14 +49,13 @@ export function LoginForm() {
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="login-password">Password</Label>
-            <a
-              href="#"
+            <Link
+              href="/forgot-password"
               className="text-xs text-brand-blue hover:underline"
               tabIndex={-1}
-              onClick={(e) => e.preventDefault()}
             >
               Forgot password?
-            </a>
+            </Link>
           </div>
           <Input
             id="login-password"
@@ -72,13 +71,12 @@ export function LoginForm() {
         <p className="text-xs leading-relaxed text-muted-foreground">
           By signing in, you acknowledge that TrustLink processes your credentials under
           the DPDP Act, 2023. See our{" "}
-          <a
-            href="#"
+          <Link
+            href="/privacy-policy"
             className="text-brand-blue underline hover:text-brand-navy"
-            onClick={(e) => e.preventDefault()}
           >
             Privacy Policy
-          </a>
+          </Link>
           .
         </p>
 

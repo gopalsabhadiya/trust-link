@@ -1,6 +1,5 @@
 import type { User as PrismaUser } from "@prisma/client";
 import type { RegisterInput, UserDTO } from "@trustlink/shared";
-import { RegisterInputSchema } from "@trustlink/shared";
 import { AppError } from "../middleware/error-handler";
 import { UserRepository } from "../repositories/user.repository";
 import { hashPassword, verifyPassword } from "./password.service";
@@ -31,20 +30,7 @@ export interface OAuthSignInInput {
 export class AuthService {
   constructor(private readonly users: UserRepository) {}
 
-  parseRegisterInput(body: unknown): RegisterInput {
-    const parsed = RegisterInputSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new AppError(
-        400,
-        "VALIDATION_ERROR",
-        parsed.error.errors.map((e) => e.message).join(", ")
-      );
-    }
-    return parsed.data;
-  }
-
-  async registerManual(body: unknown): Promise<UserDTO> {
-    const input = this.parseRegisterInput(body);
+  async registerManual(input: RegisterInput): Promise<UserDTO> {
     const existing = await this.users.findByEmail(input.email);
     if (existing) {
       throw new AppError(

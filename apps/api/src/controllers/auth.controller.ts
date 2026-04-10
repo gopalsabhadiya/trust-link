@@ -1,8 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
-import type { ApiResponse, UserDTO } from "@trustlink/shared";
+import {
+  LoginInputSchema,
+  RegisterInputSchema,
+  type ApiResponse,
+  type UserDTO,
+} from "@trustlink/shared";
 import passport from "passport";
 import { env, isGoogleOAuthConfigured, isLinkedInOAuthConfigured } from "../config";
 import type { OAuthProfilePayload } from "../config/passport";
+import { AppError } from "../middleware";
 import { AuthService } from "../services/auth.service";
 import { clearAuthCookie, setAuthCookie } from "../utils/auth-cookie";
 
@@ -15,7 +21,15 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const user = await this.authService.registerManual(req.body);
+      const parsed = RegisterInputSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          parsed.error.errors.map((e) => e.message).join(", ")
+        );
+      }
+      const user = await this.authService.registerManual(parsed.data);
       setAuthCookie(res, user.id, user.email);
       res.status(201).json({ success: true, data: user, error: null });
     } catch (e) {
@@ -29,15 +43,15 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { email, password } = req.body as { email?: string; password?: string };
-      if (!email || !password) {
-        res.status(400).json({
-          success: false,
-          data: null,
-          error: "Email and password are required",
-        });
-        return;
+      const parsed = LoginInputSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          parsed.error.errors.map((e) => e.message).join(", ")
+        );
       }
+      const { email, password } = parsed.data;
       const user = await this.authService.loginManual(email, password);
       setAuthCookie(res, user.id, user.email);
       res.json({ success: true, data: user, error: null });
@@ -109,6 +123,18 @@ export class AuthController {
       next(e);
     }
   };
+
+  meHR = async (
+    req: Request,
+    res: Response<ApiResponse<UserDTO>>,
+    next: NextFunction
+  ): Promise<void> => this.me(req, res, next);
+
+  meRecruiter = async (
+    req: Request,
+    res: Response<ApiResponse<UserDTO>>,
+    next: NextFunction
+  ): Promise<void> => this.me(req, res, next);
 
   logout = (_req: Request, res: Response<ApiResponse<null>>): void => {
     clearAuthCookie(res);

@@ -1,7 +1,8 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { UserRole } from "@trustlink/shared";
@@ -45,8 +46,10 @@ const ACCOUNT_TYPES: {
 ];
 
 export function RegisterForm() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { register: submitRegistration, isLoading } = useAuth();
-  const [accountType, setAccountType] = useState<AccountType>("RECRUITER");
 
   const {
     register,
@@ -61,13 +64,25 @@ export function RegisterForm() {
       email: "",
       password: "",
       consent: false,
-      role: "RECRUITER",
+      role: "HR",
     },
   });
 
+  const roleFromUrl = searchParams.get("role");
+  const selectedRole: AccountType =
+    roleFromUrl === "HR" || roleFromUrl === "RECRUITER" || roleFromUrl === "CANDIDATE"
+      ? roleFromUrl
+      : "HR";
+
   useEffect(() => {
-    setValue("role", accountType);
-  }, [accountType, setValue]);
+    setValue("role", selectedRole);
+  }, [selectedRole, setValue]);
+
+  const updateRoleInUrl = (role: AccountType) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("role", role);
+    router.replace(`${pathname}?${next.toString()}`);
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     await submitRegistration(values);
@@ -89,12 +104,12 @@ export function RegisterForm() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {ACCOUNT_TYPES.map((type) => {
             const Icon = type.icon;
-            const selected = accountType === type.value;
+            const selected = selectedRole === type.value;
             return (
               <button
                 key={type.value}
                 type="button"
-                onClick={() => setAccountType(type.value)}
+                onClick={() => updateRoleInUrl(type.value)}
                 className={cn(
                   "flex flex-col items-center gap-2 rounded-md border-2 p-4 text-center transition-all",
                   selected
@@ -198,13 +213,12 @@ export function RegisterForm() {
           >
             I agree to the processing of my personal data under the DPDP Act for recruitment
             purposes. I have read the{" "}
-            <a
-              href="#"
+            <Link
+              href="/privacy-policy"
               className="text-brand-blue underline hover:text-brand-navy"
-              onClick={(e) => e.preventDefault()}
             >
               Privacy Policy
-            </a>
+            </Link>
             .
           </label>
         </div>
@@ -225,13 +239,12 @@ export function RegisterForm() {
 
         <p className="text-center text-xs text-muted-foreground">
           By creating an account you also agree to our{" "}
-          <a
-            href="#"
+          <Link
+            href="/terms"
             className="text-brand-blue underline hover:text-brand-navy"
-            onClick={(e) => e.preventDefault()}
           >
             Terms of Service
-          </a>
+          </Link>
           .
         </p>
       </form>

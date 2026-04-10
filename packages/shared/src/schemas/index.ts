@@ -11,3 +11,8 @@ export {
   RegisterInputSchema,
   type RegisterInput,
 } from "./register.schema";
+
+export {
+  LoginInputSchema,
+  type LoginInput,
+} from "./auth.schema";

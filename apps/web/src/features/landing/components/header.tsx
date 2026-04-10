@@ -69,12 +69,20 @@ export function Header() {
               Log In
             </Button>
           </Link>
-          <Link href="/register" prefetch={false} data-analytics-id="header-issue-credential">
+          <Link
+            href="/register?role=HR"
+            prefetch={false}
+            data-analytics-id="header-issue-credential"
+          >
             <Button variant="outline" size="sm">
               Issue Credential
             </Button>
           </Link>
-          <Link href="/register" prefetch={false} data-analytics-id="header-verify-candidate">
+          <Link
+            href="/register?role=RECRUITER"
+            prefetch={false}
+            data-analytics-id="header-verify-candidate"
+          >
             <Button size="sm">Verify Candidate</Button>
           </Link>
         </div>

@@ -19,8 +19,13 @@ router.post("/logout", authController.logout);
 router.get("/me", requireAuth, authController.me);
 
 // Example RBAC-protected endpoints for role-specific dashboard data.
-router.get("/me/hr", requireAuth, checkRole(["HR"]), authController.me);
-router.get("/me/recruiter", requireAuth, checkRole(["RECRUITER", "HR"]), authController.me);
+router.get("/me/hr", requireAuth, checkRole(["HR"]), authController.meHR);
+router.get(
+  "/me/recruiter",
+  requireAuth,
+  checkRole(["RECRUITER", "HR"]),
+  authController.meRecruiter
+);
 
 router.get("/google", authController.googleStart);
 router.get(
