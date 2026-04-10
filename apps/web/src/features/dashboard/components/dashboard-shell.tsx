@@ -15,19 +15,19 @@ export function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-slate-50">
       <DashboardSidebar
         user={user}
         mobileOpen={mobileOpen}
         onNavigate={() => setMobileOpen(false)}
         onOpenMobileMenu={() => setMobileOpen(true)}
       />
-      <div className="ml-14 flex min-h-screen min-w-0 flex-1 flex-col md:ml-0">
+      <div className="ml-14 flex h-full min-h-0 min-w-0 flex-1 flex-col md:ml-0">
         <DashboardHeader
           user={user}
           onMenuClick={() => setMobileOpen(true)}
         />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ export function DashboardSidebar({
     expanded: boolean;
     onLinkClick?: () => void;
   }) => (
-    <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Workspace">
+    <nav className="flex flex-col gap-1 p-3" aria-label="Workspace">
       {BASE_NAV.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
         return (
@@ -95,11 +95,13 @@ export function DashboardSidebar({
 
   return (
     <>
-      <aside className="relative hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
-        <div className="flex h-16 items-center border-b border-slate-100 px-4">
+      <aside className="relative hidden h-full min-h-0 w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
+        <div className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4">
           <TrustLinkLogoMark />
         </div>
-        <NavList expanded />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <NavList expanded />
+        </div>
       </aside>
 
       <aside
@@ -142,10 +144,12 @@ export function DashboardSidebar({
             onClick={onNavigate}
           />
           <aside className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white shadow-xl md:hidden">
-            <div className="flex h-16 items-center border-b border-slate-100 px-4">
+            <div className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4">
               <TrustLinkLogoMark />
             </div>
-            <NavList expanded onLinkClick={onNavigate} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <NavList expanded onLinkClick={onNavigate} />
+            </div>
           </aside>
         </>
       )}
