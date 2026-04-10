@@ -88,7 +88,7 @@ function SidebarNavLink({
         <BrandIcon icon={Icon} variant={active ? "brand" : "muted"} size="md" />
         {showBadge && labelCollapsed ? (
           <span
-            className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand-blue)] px-1 text-[10px] font-bold leading-none text-white transition-[transform,opacity] duration-[320ms] ease-sidebar"
+            className="absolute -right-0.5 -top-0.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand-blue)] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white transition-[transform,opacity] duration-[320ms] ease-sidebar"
             aria-hidden
           >
             {badgeText}

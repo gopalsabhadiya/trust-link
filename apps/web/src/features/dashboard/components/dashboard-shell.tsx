@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { UserDTO } from "@trustlink/shared";
+import { HrRealtimeListener } from "@/features/hr-requests/components/hr-realtime-listener";
 import { DashboardHeader } from "./dashboard-header";
 import { DashboardSidebar } from "./dashboard-sidebar";
 
@@ -60,6 +61,7 @@ export function DashboardShell({
 
   return (
     <TooltipProvider delayDuration={300} skipDelayDuration={100}>
+      {user.role === "HR" ? <HrRealtimeListener /> : null}
       <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-slate-50">
         <DashboardSidebar
           user={user}

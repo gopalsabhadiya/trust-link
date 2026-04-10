@@ -34,6 +34,7 @@ import {
   normalizeHrReviewEmail,
 } from "../utils/hr-review-email";
 import { SigningService } from "./signing.service";
+import { emitNewCredentialRequest } from "../realtime/hr-realtime";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -77,6 +78,12 @@ export class DraftService {
       hrEmail: input.hrEmail,
       reviewLink,
       employeeName: content.employeeName,
+      companyName: content.companyName,
+    });
+
+    emitNewCredentialRequest(hrReviewEmail, {
+      candidateName: content.employeeName,
+      caseId,
       companyName: content.companyName,
     });
 
@@ -578,6 +585,12 @@ export class DraftService {
       hrEmail: input.hrEmail,
       reviewLink,
       employeeName: content.employeeName,
+      companyName: content.companyName,
+    });
+
+    emitNewCredentialRequest(normalizeHrReviewEmail(input.hrEmail), {
+      candidateName: content.employeeName,
+      caseId: result.caseId,
       companyName: content.companyName,
     });
 

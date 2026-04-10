@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -9,7 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { submitHrReviewByCaseId } from "@/features/drafting/api/drafts-api";
 import { useHrCredentialRequestsQuery } from "../hooks/use-hr-credential-requests";
+import {
+  HR_NEW_REQUEST_WINDOW_EVENT,
+  type HrNewRequestWindowEvent,
+} from "../lib/hr-realtime-window-event";
 import { cn } from "@/lib/utils";
+
+const HIGHLIGHT_MS = 6500;
 
 function statusLabel(status: CredentialStatus): string {
   switch (status) {
@@ -25,21 +32,34 @@ function statusLabel(status: CredentialStatus): string {
   }
 }
 
-function StatusBadge({ status }: { status: CredentialStatus }) {
+function StatusBadge({
+  status,
+  showNew,
+}: {
+  status: CredentialStatus;
+  showNew?: boolean;
+}) {
   const label = statusLabel(status);
   const reviewing = status === "HR_REVIEWING" || status === "HR_APPROVED";
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "rounded-md font-medium",
-        reviewing && "border-slate-300 bg-slate-50 text-slate-500",
-        status === "DRAFT_SUBMITTED" && "border-slate-200 text-slate-700",
-        status === "REVISIONS_REQUIRED" && "border-amber-200 bg-amber-50 text-amber-800"
-      )}
-    >
-      {label}
-    </Badge>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Badge
+        variant="outline"
+        className={cn(
+          "rounded-md font-medium",
+          reviewing && "border-slate-300 bg-slate-50 text-slate-500",
+          status === "DRAFT_SUBMITTED" && "border-slate-200 text-slate-700",
+          status === "REVISIONS_REQUIRED" && "border-amber-200 bg-amber-50 text-amber-800"
+        )}
+      >
+        {label}
+      </Badge>
+      {showNew ? (
+        <Badge className="rounded-md border-transparent bg-[var(--color-brand-blue)] px-1.5 text-[10px] font-bold uppercase tracking-wide text-white transition-opacity duration-300 ease-sidebar">
+          New
+        </Badge>
+      ) : null}
+    </div>
   );
 }
 
@@ -128,11 +148,22 @@ function ActionButtons({ row }: { row: HrCredentialRequestItemDTO }) {
   );
 }
 
-function MobileCard({ row }: { row: HrCredentialRequestItemDTO }) {
+function MobileCard({
+  row,
+  isHighlighted,
+}: {
+  row: HrCredentialRequestItemDTO;
+  isHighlighted: boolean;
+}) {
   return (
-    <article className="space-y-3 p-4">
+    <article
+      className={cn(
+        "space-y-3 p-4",
+        isHighlighted && "animate-hr-request-row-new"
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <StatusBadge status={row.status} />
+        <StatusBadge status={row.status} showNew={isHighlighted} />
         <span className="text-xs text-slate-500">
           {new Date(row.dateReceived).toLocaleDateString(undefined, {
             year: "numeric",
@@ -149,6 +180,28 @@ function MobileCard({ row }: { row: HrCredentialRequestItemDTO }) {
 
 export function HrCredentialRequestsClient() {
   const { data, isPending, isError, error, refetch } = useHrCredentialRequestsQuery(true);
+  const highlightedRef = useRef(new Set<string>());
+  const [, setHighlightBump] = useState(0);
+
+  const markHighlighted = useCallback((caseId: string) => {
+    highlightedRef.current.add(caseId);
+    setHighlightBump((n) => n + 1);
+    window.setTimeout(() => {
+      highlightedRef.current.delete(caseId);
+      setHighlightBump((n) => n + 1);
+    }, HIGHLIGHT_MS);
+  }, []);
+
+  useEffect(() => {
+    const onIncoming = (e: Event) => {
+      const detail = (e as HrNewRequestWindowEvent).detail;
+      if (detail?.caseId) markHighlighted(detail.caseId);
+    };
+    window.addEventListener(HR_NEW_REQUEST_WINDOW_EVENT, onIncoming);
+    return () => window.removeEventListener(HR_NEW_REQUEST_WINDOW_EVENT, onIncoming);
+  }, [markHighlighted]);
+
+  const isRowNew = (caseId: string) => highlightedRef.current.has(caseId);
 
   if (isPending) {
     return (
@@ -190,7 +243,11 @@ export function HrCredentialRequestsClient() {
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="divide-y divide-slate-100 sm:hidden">
         {requests.map((row) => (
-          <MobileCard key={row.caseId} row={row} />
+          <MobileCard
+            key={row.caseId}
+            row={row}
+            isHighlighted={isRowNew(row.caseId)}
+          />
         ))}
       </div>
       <div className="hidden overflow-x-auto sm:block">
@@ -205,12 +262,18 @@ export function HrCredentialRequestsClient() {
           </thead>
           <tbody className="text-slate-800">
             {requests.map((row) => (
-              <tr key={row.caseId} className="border-b border-slate-100 last:border-0">
+              <tr
+                key={row.caseId}
+                className={cn(
+                  "border-b border-slate-100 last:border-0",
+                  isRowNew(row.caseId) && "animate-hr-request-row-new"
+                )}
+              >
                 <td className="px-4 py-3 pr-4 align-middle">
                   <CandidateCell row={row} />
                 </td>
                 <td className="py-3 pr-4 align-middle">
-                  <StatusBadge status={row.status} />
+                  <StatusBadge status={row.status} showNew={isRowNew(row.caseId)} />
                 </td>
                 <td className="hidden py-3 pr-4 align-middle text-slate-600 md:table-cell">
                   {new Date(row.dateReceived).toLocaleDateString(undefined, {

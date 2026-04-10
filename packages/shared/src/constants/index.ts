@@ -19,6 +19,15 @@ export const ERROR_CODES = {
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
+/** Socket.io event name — HR inbox real-time updates. */
+export const HR_SOCKET_EVENT_NEW_CREDENTIAL_REQUEST = "NEW_CREDENTIAL_REQUEST" as const;
+
+export interface HrNewCredentialRequestPayload {
+  candidateName: string;
+  caseId: string;
+  companyName: string;
+}
+
 export const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,
