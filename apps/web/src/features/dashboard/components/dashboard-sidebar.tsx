@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  FileCheck,
   LayoutDashboard,
   Link2,
   Settings,
@@ -19,6 +20,7 @@ import { BrandIcon, TrustLinkLogoMark } from "@/components/brand";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { UserDTO, UserRole } from "@trustlink/shared";
+import { useHrCredentialRequestsQuery } from "@/features/hr-requests/hooks/use-hr-credential-requests";
 
 const BASE_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -26,10 +28,21 @@ const BASE_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
-const ROLE_EXTRA: Record<UserRole, { href: string; label: string; icon: LucideIcon }[]> = {
+const ROLE_EXTRA: Record<
+  UserRole,
+  { href: string; label: string; icon: LucideIcon; hrRequestsBadge?: boolean }[]
+> = {
   CANDIDATE: [{ href: "/dashboard/experience", label: "Experience", icon: ClipboardList }],
   RECRUITER: [{ href: "#", label: "Candidate search", icon: UserSearch }],
-  HR: [{ href: "#", label: "Team metrics", icon: Building2 }],
+  HR: [
+    {
+      href: "/dashboard/hr/requests",
+      label: "Credential Requests",
+      icon: FileCheck,
+      hrRequestsBadge: true,
+    },
+    { href: "#", label: "Team metrics", icon: Building2 },
+  ],
 };
 
 /**
@@ -42,6 +55,7 @@ function SidebarNavLink({
   active,
   collapsed,
   onClick,
+  badgeCount,
 }: {
   href: string;
   label: string;
@@ -49,9 +63,13 @@ function SidebarNavLink({
   active: boolean;
   collapsed?: boolean;
   onClick?: MouseEventHandler<HTMLAnchorElement>;
+  badgeCount?: number;
 }) {
   const isDrawer = collapsed === undefined;
   const labelCollapsed = collapsed === true;
+
+  const showBadge = typeof badgeCount === "number" && badgeCount > 0;
+  const badgeText = badgeCount != null && badgeCount > 9 ? "9+" : String(badgeCount ?? "");
 
   const link = (
     <Link
@@ -66,12 +84,20 @@ function SidebarNavLink({
           : "border-transparent font-medium text-slate-800 hover:bg-slate-100"
       )}
     >
-      <span className="flex h-9 w-10 shrink-0 items-center justify-center">
+      <span className="relative flex h-9 w-10 shrink-0 items-center justify-center">
         <BrandIcon icon={Icon} variant={active ? "brand" : "muted"} size="md" />
+        {showBadge && labelCollapsed ? (
+          <span
+            className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand-blue)] px-1 text-[10px] font-bold leading-none text-white transition-[transform,opacity] duration-[320ms] ease-sidebar"
+            aria-hidden
+          >
+            {badgeText}
+          </span>
+        ) : null}
       </span>
       <span
         className={cn(
-          "block min-w-0 overflow-hidden whitespace-nowrap text-left",
+          "block min-w-0 flex-1 overflow-hidden whitespace-nowrap text-left",
           isDrawer && "max-w-[min(100%,18rem)] opacity-100 transition-[max-width,opacity] duration-200 ease-sidebar",
           !isDrawer && "transition-sidebar-label",
           !isDrawer && labelCollapsed && "max-w-0 opacity-0",
@@ -82,6 +108,14 @@ function SidebarNavLink({
       >
         {label}
       </span>
+      {showBadge && !labelCollapsed ? (
+        <span
+          className="ml-1 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand-blue)] px-1.5 text-[10px] font-bold leading-none text-white transition-sidebar-label"
+          aria-hidden
+        >
+          {badgeText}
+        </span>
+      ) : null}
     </Link>
   );
 
@@ -116,11 +150,13 @@ export function DashboardSidebar({
 }) {
   const pathname = usePathname();
   const extra = ROLE_EXTRA[user.role];
+  const hrRequestsQuery = useHrCredentialRequestsQuery(user.role === "HR");
+  const hrPendingCount = hrRequestsQuery.data?.pendingActionCount ?? 0;
 
   const DesktopNav = () => (
     <nav
       id="dashboard-workspace-nav"
-      className="flex flex-col gap-1 p-3"
+      className="flex flex-col gap-1 px-3 pb-3 pt-5"
       aria-label="Workspace"
     >
       {BASE_NAV.map(({ href, label, icon: Icon }) => {
@@ -136,7 +172,7 @@ export function DashboardSidebar({
           />
         );
       })}
-      {extra.map(({ href, label, icon: Icon }) => {
+      {extra.map(({ href, label, icon: Icon, hrRequestsBadge }) => {
         const roleLinkActive = href !== "#" && pathname === href;
         return (
           <SidebarNavLink
@@ -146,6 +182,7 @@ export function DashboardSidebar({
             icon={Icon}
             active={roleLinkActive}
             collapsed={sidebarCollapsed}
+            badgeCount={hrRequestsBadge ? hrPendingCount : undefined}
             onClick={href === "#" ? (e) => e.preventDefault() : undefined}
           />
         );
@@ -154,7 +191,7 @@ export function DashboardSidebar({
   );
 
   const MobileDrawerNav = () => (
-    <nav className="flex flex-col gap-1 p-3" aria-label="Workspace">
+    <nav className="flex flex-col gap-1 px-3 pb-3 pt-5" aria-label="Workspace">
       {BASE_NAV.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
         return (
@@ -170,7 +207,7 @@ export function DashboardSidebar({
           />
         );
       })}
-      {extra.map(({ href, label, icon: Icon }) => {
+      {extra.map(({ href, label, icon: Icon, hrRequestsBadge }) => {
         const roleLinkActive = href !== "#" && pathname === href;
         return (
           <SidebarNavLink
@@ -179,6 +216,7 @@ export function DashboardSidebar({
             label={label}
             icon={Icon}
             active={roleLinkActive}
+            badgeCount={hrRequestsBadge ? hrPendingCount : undefined}
             onClick={(e) => {
               if (href === "#") e.preventDefault();
               onNavigate?.();
@@ -199,50 +237,77 @@ export function DashboardSidebar({
       >
         <div
           className={cn(
-            "flex h-16 shrink-0 items-center border-b border-slate-200 bg-white transition-[padding,gap] duration-[320ms] ease-sidebar",
-            sidebarCollapsed ? "gap-0 px-0.5" : "gap-1 px-2.5"
+            "shrink-0 border-b border-slate-200 bg-white transition-[padding,min-height,gap] duration-[320ms] ease-sidebar",
+            sidebarCollapsed
+              ? "flex min-h-[4.5rem] flex-col items-stretch gap-1 px-0.5 py-1.5"
+              : "flex h-16 flex-row items-center gap-1 px-2.5"
           )}
         >
-          <div className="flex min-w-0 flex-1 items-center justify-start overflow-hidden">
-            <TrustLinkLogoMark
-              variant="sidebar"
-              showWordmark={!sidebarCollapsed}
-              iconSize="xl"
-              className="min-w-0"
-            />
-          </div>
-          <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={onToggleSidebarCollapsed}
-                aria-expanded={!sidebarCollapsed}
-                aria-controls="dashboard-workspace-nav"
-                aria-label={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors duration-[320ms] ease-sidebar hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2"
-              >
-                <span className="relative h-5 w-5 shrink-0">
-                  <ChevronLeft
-                    className={cn(
-                      "absolute inset-0 h-5 w-5 text-[var(--color-brand-blue)] transition-opacity duration-[320ms] ease-sidebar",
-                      sidebarCollapsed ? "opacity-0" : "opacity-100"
-                    )}
-                    aria-hidden
-                  />
-                  <ChevronRight
-                    className={cn(
-                      "absolute inset-0 h-5 w-5 text-[var(--color-brand-blue)] transition-opacity duration-[320ms] ease-sidebar",
-                      sidebarCollapsed ? "opacity-100" : "opacity-0"
-                    )}
-                    aria-hidden
-                  />
-                </span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" align="center">
-              {sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-            </TooltipContent>
-          </Tooltip>
+          {sidebarCollapsed ? (
+            <>
+              <div className="flex min-h-9 w-full items-center justify-center overflow-hidden">
+                <TrustLinkLogoMark
+                  variant="sidebar"
+                  showWordmark={false}
+                  iconSize="xl"
+                  className="min-w-0"
+                />
+              </div>
+              <div className="flex w-full items-center justify-center">
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onToggleSidebarCollapsed}
+                      aria-expanded={false}
+                      aria-controls="dashboard-workspace-nav"
+                      aria-label="Expand Sidebar"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors duration-[320ms] ease-sidebar hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2"
+                    >
+                      <ChevronRight
+                        className="h-5 w-5 text-[var(--color-brand-blue)]"
+                        aria-hidden
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" align="center">
+                    Expand Sidebar
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex min-w-0 flex-1 items-center justify-start overflow-hidden">
+                <TrustLinkLogoMark
+                  variant="sidebar"
+                  showWordmark
+                  iconSize="xl"
+                  className="min-w-0"
+                />
+              </div>
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onToggleSidebarCollapsed}
+                    aria-expanded
+                    aria-controls="dashboard-workspace-nav"
+                    aria-label="Collapse Sidebar"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors duration-[320ms] ease-sidebar hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2"
+                  >
+                    <ChevronLeft
+                      className="h-5 w-5 text-[var(--color-brand-blue)]"
+                      aria-hidden
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" align="center">
+                  Collapse Sidebar
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <DesktopNav />

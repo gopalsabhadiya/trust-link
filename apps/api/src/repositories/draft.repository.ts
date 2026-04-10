@@ -1,4 +1,8 @@
-import type { CredentialDraftVersion, CredentialStatus, Prisma } from "@prisma/client";
+import {
+  Prisma,
+  type CredentialDraftVersion,
+  type CredentialStatus,
+} from "@prisma/client";
 import { prisma } from "../config";
 
 export interface CreateDraftInput {
@@ -109,7 +113,7 @@ export class DraftRepository {
     });
   }
 
-  issueFromVersion(input: {
+  async issueFromVersion(input: {
     versionId: string;
     caseId: string;
     contentSnapshot: Prisma.InputJsonValue;
@@ -119,30 +123,56 @@ export class DraftRepository {
     privacyPolicyVersion: string;
     purgeAfterAt: Date;
   }): Promise<CredentialDraftVersion> {
-    return prisma.$transaction(async (tx) => {
-      await tx.issuedCredentialSnapshot.create({
-        data: {
-          caseId: input.caseId,
-          sourceVersionId: input.versionId,
-          credentialHash: input.credentialHash,
-          signature: input.signature,
-          signatoryPubKey: input.signatoryPubKey,
-          contentSnapshot: input.contentSnapshot,
-          privacyPolicyVersion: input.privacyPolicyVersion,
-          purgeAfterAt: input.purgeAfterAt,
-          purgeStatus: "SCHEDULED",
-        },
-      });
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const existingSnap = await tx.issuedCredentialSnapshot.findUnique({
+          where: { sourceVersionId: input.versionId },
+          select: { id: true },
+        });
+        if (existingSnap) {
+          return tx.credentialDraftVersion.findUniqueOrThrow({
+            where: { id: input.versionId },
+          });
+        }
 
-      return tx.credentialDraftVersion.update({
-        where: { id: input.versionId },
-        data: {
-          status: "ISSUED",
-          magicTokenHash: null,
-          tokenExpiresAt: null,
-        },
+        await tx.issuedCredentialSnapshot.create({
+          data: {
+            caseId: input.caseId,
+            sourceVersionId: input.versionId,
+            credentialHash: input.credentialHash,
+            signature: input.signature,
+            signatoryPubKey: input.signatoryPubKey,
+            contentSnapshot: input.contentSnapshot,
+            privacyPolicyVersion: input.privacyPolicyVersion,
+            purgeAfterAt: input.purgeAfterAt,
+            purgeStatus: "SCHEDULED",
+          },
+        });
+
+        return tx.credentialDraftVersion.update({
+          where: { id: input.versionId },
+          data: {
+            status: "ISSUED",
+            magicTokenHash: null,
+            tokenExpiresAt: null,
+          },
+        });
       });
-    });
+    } catch (e) {
+      /** Postgres aborts the transaction on unique violation; do not query on `tx` after `create` fails. */
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        const raced = await prisma.issuedCredentialSnapshot.findUnique({
+          where: { sourceVersionId: input.versionId },
+          select: { id: true },
+        });
+        if (raced) {
+          return prisma.credentialDraftVersion.findUniqueOrThrow({
+            where: { id: input.versionId },
+          });
+        }
+      }
+      throw e;
+    }
   }
 
   async createComplianceAuditLog(input: {
@@ -297,6 +327,49 @@ export class DraftRepository {
     await prisma.credentialDraftVersion.update({
       where: { id: versionId },
       data: { magicTokenHash, tokenExpiresAt },
+    });
+  }
+
+  countHrPendingActions(hrReviewEmail: string): Promise<number> {
+    return prisma.credentialDraftVersion.count({
+      where: {
+        hrReviewEmail: hrReviewEmail,
+        status: { in: ["DRAFT_SUBMITTED", "HR_REVIEWING", "HR_APPROVED"] },
+        currentForCase: { isNot: null },
+      },
+    });
+  }
+
+  listCasesForHrInbox(hrReviewEmail: string) {
+    return prisma.credentialCase.findMany({
+      where: {
+        currentVersion: {
+          hrReviewEmail: hrReviewEmail,
+          status: { notIn: ["ISSUED", "REJECTED"] },
+        },
+      },
+      orderBy: { currentVersion: { updatedAt: "desc" } },
+      include: {
+        candidate: { select: { id: true, name: true, profilePicture: true } },
+        company: { select: { name: true } },
+        currentVersion: true,
+      },
+    });
+  }
+
+  findCaseForHrReview(caseId: string, hrReviewEmail: string) {
+    return prisma.credentialCase.findFirst({
+      where: {
+        id: caseId,
+        currentVersion: {
+          hrReviewEmail: hrReviewEmail,
+        },
+      },
+      include: {
+        candidate: { select: { id: true, name: true, profilePicture: true } },
+        company: { select: { name: true } },
+        currentVersion: true,
+      },
     });
   }
 }

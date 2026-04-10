@@ -83,3 +83,8 @@ export type {
   CaseEditPayloadDTO,
   RegenerateReviewLinkDTO,
 } from "./experience";
+
+export type {
+  HrCredentialRequestItemDTO,
+  HrCredentialRequestsResponseDTO,
+} from "./hr-inbox";

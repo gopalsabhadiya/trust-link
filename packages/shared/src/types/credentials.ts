@@ -25,7 +25,8 @@ export interface DraftReviewPublicDTO {
   id: string;
   status: CredentialStatus;
   content: IExperienceLetter;
-  tokenExpiresAt: string;
+  /** Magic-link expiry; `null` when reviewed via authenticated HR inbox (no active token). */
+  tokenExpiresAt: string | null;
   hrFeedback: string | null;
 }
 

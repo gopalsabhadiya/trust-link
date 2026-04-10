@@ -6,6 +6,7 @@ import type {
   DraftReviewMutationInput,
   DraftReviewPublicDTO,
   ExperienceLetterInput,
+  HrCredentialRequestsResponseDTO,
   IssuedCredentialDTO,
   RegenerateReviewLinkDTO,
   VerifyCredentialDTO,
@@ -96,6 +97,32 @@ export async function fetchReviewDraft(token: string): Promise<DraftReviewPublic
   }
 }
 
+export async function fetchHrCredentialRequests(): Promise<HrCredentialRequestsResponseDTO> {
+  try {
+    const { data } = await draftsClient.get<ApiResponse<HrCredentialRequestsResponseDTO>>(
+      "/hr/requests"
+    );
+    if (!data.success || !data.data) {
+      throw new Error(data.error ?? "Could not load credential requests");
+    }
+    return data.data;
+  } catch (error) {
+    throw normalizeDraftError(error, "Could not load credential requests");
+  }
+}
+
+export async function fetchHrReviewByCaseId(caseId: string): Promise<DraftReviewPublicDTO> {
+  try {
+    const { data } = await draftsClient.get<ApiResponse<DraftReviewPublicDTO>>(
+      `/hr/cases/${caseId}/review`
+    );
+    if (!data.success || !data.data) throw new Error(data.error ?? "Could not load review");
+    return data.data;
+  } catch (error) {
+    throw draftAxiosToRequestError(error, "Could not load review");
+  }
+}
+
 export async function submitReviewAction(
   token: string,
   payload: DraftReviewMutationInput
@@ -103,6 +130,22 @@ export async function submitReviewAction(
   try {
     const { data } = await draftsClient.patch<ApiResponse<ReviewActionResponse>>(
       `/drafts/review/${token}`,
+      payload
+    );
+    if (!data.success || !data.data) throw new Error(data.error ?? "Review action failed");
+    return data.data;
+  } catch (error) {
+    throw draftAxiosToRequestError(error, "Could not submit review action");
+  }
+}
+
+export async function submitHrReviewByCaseId(
+  caseId: string,
+  payload: DraftReviewMutationInput
+): Promise<ReviewActionResponse> {
+  try {
+    const { data } = await draftsClient.patch<ApiResponse<ReviewActionResponse>>(
+      `/hr/cases/${caseId}/review`,
       payload
     );
     if (!data.success || !data.data) throw new Error(data.error ?? "Review action failed");

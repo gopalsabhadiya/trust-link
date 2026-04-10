@@ -13,6 +13,8 @@ import {
   type RegenerateReviewLinkDTO,
   type CredentialStatus,
   type ExperienceUiStatus,
+  type HrCredentialRequestItemDTO,
+  type HrCredentialRequestsResponseDTO,
   compareExperienceCases,
 } from "@trustlink/shared";
 import { env } from "../config";
@@ -21,6 +23,11 @@ import type { AuthRequestUser } from "../types/express";
 import { DraftRepository } from "../repositories/draft.repository";
 import { DraftNotificationService } from "./draft-notification.service";
 import { canonicalJSONStringify } from "../utils/canonical-json";
+import {
+  buildIssuanceSnapshotEnvelope,
+  canonicalStringForIssuedSnapshotHash,
+  parseLetterFromIssuedSnapshot,
+} from "../utils/issued-snapshot";
 import { generateMagicToken, hashMagicToken, MAGIC_TOKEN_REGEX } from "../utils/magic-token";
 import {
   maskHrReviewEmailForDisplay,
@@ -107,6 +114,77 @@ export class DraftService {
     };
   }
 
+  async listHrRequests(authUser: AuthRequestUser): Promise<HrCredentialRequestsResponseDTO> {
+    if (authUser.role !== "HR") {
+      throw new AppError(403, "FORBIDDEN", "Only HR users can list credential requests");
+    }
+    const hrEmail = normalizeHrReviewEmail(authUser.email);
+    const [rows, pendingActionCount] = await Promise.all([
+      this.drafts.listCasesForHrInbox(hrEmail),
+      this.drafts.countHrPendingActions(hrEmail),
+    ]);
+
+    const requests: HrCredentialRequestItemDTO[] = [];
+    for (const row of rows) {
+      const v = row.currentVersion;
+      if (!v) continue;
+      let content: ExperienceLetterInput;
+      try {
+        content = ExperienceLetterSchema.parse(v.content);
+      } catch {
+        continue;
+      }
+      requests.push({
+        caseId: row.id,
+        versionId: v.id,
+        candidateId: row.candidate.id,
+        candidateName: row.candidate.name,
+        profilePicture: row.candidate.profilePicture,
+        designation: content.designation,
+        companyName: row.company.name,
+        status: v.status,
+        dateReceived: v.createdAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
+      });
+    }
+
+    return { requests, pendingActionCount };
+  }
+
+  async getHrReviewByCaseId(
+    caseId: string,
+    authUser: AuthRequestUser
+  ): Promise<DraftReviewPublicDTO> {
+    if (authUser.role !== "HR") {
+      throw new AppError(403, "FORBIDDEN", "Only HR users can review credentials");
+    }
+    const row = await this.drafts.findCaseForHrReview(
+      caseId,
+      normalizeHrReviewEmail(authUser.email)
+    );
+    if (!row?.currentVersion) {
+      throw new AppError(404, "NOT_FOUND", "Request not found");
+    }
+    const version = row.currentVersion;
+    this.assertHrCanReviewVersion(version, authUser);
+    const parsedContent = ExperienceLetterSchema.parse(version.content);
+
+    await this.drafts.createComplianceAuditLog({
+      versionId: version.id,
+      action: "REVIEW_VIEW",
+      actorUserId: authUser.id,
+      privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
+    });
+
+    return {
+      id: row.id,
+      status: version.status,
+      content: parsedContent,
+      tokenExpiresAt: version.tokenExpiresAt?.toISOString() ?? null,
+      hrFeedback: version.hrFeedback,
+    };
+  }
+
   async submitReviewAction(
     token: string,
     input: DraftReviewMutationInput,
@@ -114,7 +192,49 @@ export class DraftService {
   ) {
     const version = await this.resolveActiveVersionFromToken(token);
     this.assertHrCanReviewVersion(version, authUser);
+    const tokenHash = hashMagicToken(token);
+    return this.applyReviewMutation(version, input, authUser, {
+      actorMagicTokenHash: tokenHash,
+    });
+  }
 
+  async submitHrReviewByCaseId(
+    caseId: string,
+    input: DraftReviewMutationInput,
+    authUser: AuthRequestUser
+  ) {
+    if (authUser.role !== "HR") {
+      throw new AppError(403, "FORBIDDEN", "Only HR users can review credentials");
+    }
+    const row = await this.drafts.findCaseForHrReview(
+      caseId,
+      normalizeHrReviewEmail(authUser.email)
+    );
+    if (!row?.currentVersion) {
+      throw new AppError(404, "NOT_FOUND", "Request not found");
+    }
+    const version = row.currentVersion;
+    this.assertHrCanReviewVersion(version, authUser);
+    return this.applyReviewMutation(
+      { ...version, caseId: row.id },
+      input,
+      authUser,
+      {}
+    );
+  }
+
+  private async applyReviewMutation(
+    version: {
+      id: string;
+      caseId: string;
+      status: CredentialStatus;
+      content: unknown;
+      hrFeedback: string | null;
+    },
+    input: DraftReviewMutationInput,
+    authUser: AuthRequestUser,
+    audit: { actorMagicTokenHash?: string }
+  ): Promise<{ id: string; status: CredentialStatus; hrFeedback: string | null }> {
     if (
       version.status === "REVISIONS_REQUIRED" ||
       version.status === "ISSUED" ||
@@ -127,13 +247,17 @@ export class DraftService {
       };
     }
 
-    const tokenHash = hashMagicToken(token);
     const now = new Date();
     await this.drafts.runSoftPurge(now);
 
     if (input.action === "APPROVE") {
       const parsedContent = ExperienceLetterSchema.parse(version.content);
-      const canonicalPayload = canonicalJSONStringify(parsedContent);
+      const issuanceSnapshot = buildIssuanceSnapshotEnvelope(
+        parsedContent,
+        version.id,
+        version.caseId
+      );
+      const canonicalPayload = canonicalStringForIssuedSnapshotHash(issuanceSnapshot);
       const hash = this.signingService.hashCanonicalPayload(canonicalPayload);
       const signed = this.signingService.signHash(hash);
       const purgeAfterAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -141,7 +265,7 @@ export class DraftService {
       const issuedVersion = await this.drafts.issueFromVersion({
         versionId: version.id,
         caseId: version.caseId,
-        contentSnapshot: parsedContent,
+        contentSnapshot: issuanceSnapshot,
         credentialHash: signed.hash,
         signature: signed.signature,
         signatoryPubKey: signed.signatoryPubKey,
@@ -153,7 +277,7 @@ export class DraftService {
         versionId: version.id,
         action: "CONSENT_TO_ISSUE",
         actorUserId: authUser.id,
-        actorMagicTokenHash: tokenHash,
+        actorMagicTokenHash: audit.actorMagicTokenHash,
         privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
       });
 
@@ -177,7 +301,7 @@ export class DraftService {
       versionId: version.id,
       action: "REQUEST_REVISION",
       actorUserId: authUser.id,
-      actorMagicTokenHash: tokenHash,
+      actorMagicTokenHash: audit.actorMagicTokenHash,
       privacyPolicyVersion: env.PRIVACY_POLICY_VERSION,
       notes: hrFeedback ?? undefined,
     });
@@ -211,7 +335,7 @@ export class DraftService {
       );
     }
 
-    const content = ExperienceLetterSchema.parse(snap.contentSnapshot);
+    const content = parseLetterFromIssuedSnapshot(snap.contentSnapshot);
 
     return {
       id: caseRec.id,
@@ -251,7 +375,7 @@ export class DraftService {
 
     let content: ExperienceLetterInput;
     try {
-      content = ExperienceLetterSchema.parse(snap.contentSnapshot);
+      content = parseLetterFromIssuedSnapshot(snap.contentSnapshot);
     } catch {
       return purgedResponse();
     }
@@ -269,7 +393,7 @@ export class DraftService {
       };
     }
 
-    const canonicalPayload = canonicalJSONStringify(content);
+    const canonicalPayload = canonicalStringForIssuedSnapshotHash(snap.contentSnapshot);
     const computedHash = this.signingService.hashCanonicalPayload(canonicalPayload);
     const valid =
       computedHash === hash &&

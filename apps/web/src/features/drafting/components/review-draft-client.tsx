@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ERROR_CODES } from "@trustlink/shared";
 import { Badge } from "@/components/ui/badge";
@@ -15,14 +16,35 @@ import { DraftRequestError } from "../api/drafts-api";
 import { useDraftReview, useDraftReviewAction } from "../hooks/use-draft-review";
 import { cn } from "@/lib/utils";
 
-export function ReviewDraftClient({ token }: { token: string }) {
+export function ReviewDraftClient({
+  token,
+  caseId,
+  embedded = false,
+}: {
+  token?: string;
+  caseId?: string;
+  embedded?: boolean;
+}) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
 
-  const reviewQuery = useDraftReview(token);
-  const actionMutation = useDraftReviewAction(token);
+  const hasToken = Boolean(token?.length);
+  const hasCaseId = Boolean(caseId?.length);
+  const sourceValid = (hasToken && !hasCaseId) || (!hasToken && hasCaseId);
+  const source = hasToken ? { token: token! } : { caseId: caseId! };
+  const reviewQuery = useDraftReview(source, sourceValid);
+  const actionMutation = useDraftReviewAction(source, sourceValid);
+
+  if (!sourceValid) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
+        Missing review parameters.
+      </div>
+    );
+  }
 
   const effectiveStatus = optimisticStatus ?? reviewQuery.data?.status ?? null;
   const isFinal =
@@ -35,7 +57,7 @@ export function ReviewDraftClient({ token }: { token: string }) {
 
   if (reviewQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-5xl p-6">
+      <div className={cn(!embedded && "mx-auto max-w-5xl p-6")}>
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-sm text-slate-600">
           Loading secure review...
         </div>
@@ -50,22 +72,28 @@ export function ReviewDraftClient({ token }: { token: string }) {
         <AccessDeniedEmailState
           token={token}
           masked={reviewErr.meta?.invitedEmailMasked}
+          embedded={embedded}
         />
       );
     }
     if (reviewErr.errorCode === ERROR_CODES.LEGACY_REVIEW_INVITATION) {
-      return <LegacyReviewInvitationState />;
+      return <LegacyReviewInvitationState embedded={embedded} />;
     }
   }
 
   if (reviewQuery.isError || !reviewQuery.data || !previewData) {
-    return <ExpiredReviewState />;
+    return <ExpiredReviewState embedded={embedded} />;
   }
 
   const employeeName = previewData.employeeName || "the employee";
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 md:p-6">
+    <div
+      className={cn(
+        "flex w-full flex-col gap-5",
+        embedded ? "p-0" : "mx-auto max-w-6xl p-4 md:p-6"
+      )}
+    >
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -103,6 +131,9 @@ export function ReviewDraftClient({ token }: { token: string }) {
               try {
                 const result = await actionMutation.mutateAsync({ action: "APPROVE" });
                 toast.success("Draft approved and digitally signed.");
+                if (caseId) {
+                  void queryClient.invalidateQueries({ queryKey: ["hr-credential-requests"] });
+                }
                 if (result.status === "ISSUED") {
                   router.push(`/dashboard/issued/${result.id}`);
                 }
@@ -114,7 +145,7 @@ export function ReviewDraftClient({ token }: { token: string }) {
               }
             }}
           >
-            {actionMutation.isPending && optimisticStatus === "HR_APPROVED"
+            {actionMutation.isPending && optimisticStatus === "ISSUED"
               ? "Approving..."
               : "Approve"}
           </Button>
@@ -155,6 +186,9 @@ export function ReviewDraftClient({ token }: { token: string }) {
                     hrFeedback: trimmed,
                   });
                   toast.success("Revision request sent to candidate.");
+                  if (caseId) {
+                    void queryClient.invalidateQueries({ queryKey: ["hr-credential-requests"] });
+                  }
                 } catch (error) {
                   setOptimisticStatus(null);
                   const message =
@@ -176,65 +210,109 @@ export function ReviewDraftClient({ token }: { token: string }) {
   );
 }
 
-function AccessDeniedEmailState({ token, masked }: { token: string; masked?: string }) {
-  const reviewPath = `/review/${token}`;
+function AccessDeniedEmailState({
+  token,
+  masked,
+  embedded,
+}: {
+  token?: string;
+  masked?: string;
+  embedded?: boolean;
+}) {
+  const reviewPath = token ? `/review/${token}` : "/dashboard/hr/requests";
+  const inner = (
+    <>
+      <div className="mb-4 flex items-center justify-center">
+        <TrustLinkLogoMark />
+      </div>
+      <h1 className="text-xl font-semibold text-slate-800">Access denied</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        This review is restricted to{" "}
+        <strong className="font-medium text-slate-800">
+          {masked ?? "the invited HR email"}
+        </strong>
+        . Sign in with the TrustLink account that uses that address, or ask the candidate to
+        update the HR contact on their draft.
+      </p>
+      <Link
+        href={
+          embedded || !token
+            ? "/dashboard/hr/requests"
+            : `/login?callbackUrl=${encodeURIComponent(reviewPath)}`
+        }
+        className={cn(
+          buttonVariants(),
+          "mt-6 inline-flex rounded-md bg-brand-blue text-white hover:bg-brand-blue/90 no-underline"
+        )}
+      >
+        {embedded || !token ? "Back to requests" : "Switch account"}
+      </Link>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">{inner}</div>
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center p-6">
       <div className="w-full rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <div className="mb-4 flex items-center justify-center">
-          <TrustLinkLogoMark />
-        </div>
-        <h1 className="text-xl font-semibold text-slate-800">Access denied</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          This review is restricted to{" "}
-          <strong className="font-medium text-slate-800">
-            {masked ?? "the invited HR email"}
-          </strong>
-          . Sign in with the TrustLink account that uses that address, or ask the candidate to
-          update the HR contact on their draft.
-        </p>
-        <Link
-          href={`/login?callbackUrl=${encodeURIComponent(reviewPath)}`}
-          className={cn(
-            buttonVariants(),
-            "mt-6 inline-flex rounded-md bg-brand-blue text-white hover:bg-brand-blue/90 no-underline"
-          )}
-        >
-          Switch account
-        </Link>
+        {inner}
       </div>
     </main>
   );
 }
 
-function LegacyReviewInvitationState() {
+function LegacyReviewInvitationState({ embedded }: { embedded?: boolean }) {
+  const inner = (
+    <>
+      <div className="mb-4 flex items-center justify-center">
+        <TrustLinkLogoMark />
+      </div>
+      <h1 className="text-xl font-semibold text-slate-800">Invitation needs refresh</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        This review link was issued before secure HR sign-in was required. Ask the candidate to
+        resubmit the draft or send you a new HR review link from their TrustLink dashboard.
+      </p>
+    </>
+  );
+  if (embedded) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">{inner}</div>
+    );
+  }
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center p-6">
       <div className="w-full rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <div className="mb-4 flex items-center justify-center">
-          <TrustLinkLogoMark />
-        </div>
-        <h1 className="text-xl font-semibold text-slate-800">Invitation needs refresh</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          This review link was issued before secure HR sign-in was required. Ask the candidate to
-          resubmit the draft or send you a new HR review link from their TrustLink dashboard.
-        </p>
+        {inner}
       </div>
     </main>
   );
 }
 
-function ExpiredReviewState() {
+function ExpiredReviewState({ embedded }: { embedded?: boolean }) {
+  const inner = (
+    <>
+      <div className="mb-4 flex items-center justify-center">
+        <TrustLinkLogoMark />
+      </div>
+      <h1 className="text-xl font-semibold text-slate-800">Review link unavailable</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        This secure review link is invalid, expired, or has already been completed.
+      </p>
+    </>
+  );
+  if (embedded) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">{inner}</div>
+    );
+  }
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center p-6">
       <div className="w-full rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <div className="mb-4 flex items-center justify-center">
-          <TrustLinkLogoMark />
-        </div>
-        <h1 className="text-xl font-semibold text-slate-800">Review link unavailable</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          This secure review link is invalid, expired, or has already been completed.
-        </p>
+        {inner}
       </div>
     </main>
   );
