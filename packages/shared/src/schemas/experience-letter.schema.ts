@@ -14,6 +14,11 @@ export const ExperienceLetterSchema = z
     keyAchievements: z
       .array(z.string().min(1, "Achievement cannot be empty").max(500))
       .min(1, "At least one key achievement is required"),
+    awards: z
+      .array(z.string().min(1, "Award cannot be empty").max(200))
+      .max(20)
+      .optional()
+      .default([]),
     companyName: z.string().min(1, "Company name is required").max(255),
     hrSignatoryName: z.string().min(1, "HR signatory name is required").max(255),
   })

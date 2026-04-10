@@ -1,5 +1,10 @@
-import { ResubmitDraftPageClient } from "@/features/drafting/components/resubmit-draft-page-client";
+import { redirect } from "next/navigation";
 
-export default function EditDraftCasePage() {
-  return <ResubmitDraftPageClient />;
+export default async function EditDraftCasePage({
+  params,
+}: {
+  params: Promise<{ caseId: string }>;
+}) {
+  const { caseId } = await params;
+  redirect(`/dashboard/experience?edit=${encodeURIComponent(caseId)}`);
 }

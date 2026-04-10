@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 
 /*
  * TrustLink design tokens — aligned with `.cursor/rules/brand-identity.md`

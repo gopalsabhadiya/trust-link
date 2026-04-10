@@ -1,210 +1,100 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { CandidateExperienceCaseDTO, ExperienceUiStatus } from "@trustlink/shared";
-import {
-  CheckCircle2,
-  ClipboardCopy,
-  Download,
-  ExternalLink,
-  FileEdit,
-  Loader2,
-} from "lucide-react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ClipboardList, Loader2 } from "lucide-react";
 import {
   BrandProgressBar,
   DashboardPageHeader,
   DashboardSectionCard,
 } from "@/components/brand";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { downloadIssuedCredentialPdf } from "@/lib/download-issued-pdf";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { fetchIssuedCredential, regenerateReviewLink } from "../api/drafts-api";
+import { fetchCaseEditPayload } from "../api/drafts-api";
 import { useCandidateExperienceQuery } from "../hooks/use-candidate-experience";
-
-function uiStatusLabel(status: ExperienceUiStatus): string {
-  switch (status) {
-    case "DRAFT":
-      return "Draft";
-    case "SUBMITTED":
-      return "Submitted";
-    case "HR_REVIEWING":
-      return "HR reviewing";
-    case "REVISIONS_REQUIRED":
-      return "Revisions required";
-    case "ISSUED":
-      return "Issued";
-    case "REJECTED":
-      return "Rejected";
-    default:
-      return status;
-  }
-}
-
-function uiStatusBadgeClass(status: ExperienceUiStatus): string {
-  switch (status) {
-    case "DRAFT":
-      return "border-slate-200 bg-slate-100 text-slate-700";
-    case "SUBMITTED":
-      return "border-blue-100 bg-blue-50 text-blue-800";
-    case "HR_REVIEWING":
-      return "border-amber-200 bg-amber-50 text-amber-900";
-    case "REVISIONS_REQUIRED":
-      return "border-red-200 bg-red-50 text-red-800";
-    case "ISSUED":
-      return "border-emerald-200 bg-emerald-50 text-emerald-800";
-    case "REJECTED":
-      return "border-slate-300 bg-slate-100 text-slate-800";
-    default:
-      return "border-slate-200 bg-slate-50 text-slate-700";
-  }
-}
-
-function CaseCard({ item }: { item: CandidateExperienceCaseDTO }) {
-  const queryClient = useQueryClient();
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-
-  const regenerate = useMutation({
-    mutationFn: () => regenerateReviewLink(item.caseId),
-    onSuccess: async (data) => {
-      try {
-        await navigator.clipboard.writeText(data.reviewUrl);
-        toast.success("Fresh HR review link copied. The previous link no longer works.");
-      } catch {
-        toast.success("New review link ready.", {
-          description: data.reviewUrl,
-        });
-      }
-      void queryClient.invalidateQueries({ queryKey: ["candidate", "experience"] });
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Could not refresh link"),
-  });
-
-  const verifyBase = typeof window !== "undefined" ? window.location.origin : "";
-
-  const onDownload = async () => {
-    if (!item.canDownloadPdf) return;
-    try {
-      setDownloadingId(item.caseId);
-      const credential = await fetchIssuedCredential(item.caseId);
-      const verifyLink = `${verifyBase}/verify/${credential.credentialHash}`;
-      await downloadIssuedCredentialPdf(credential, verifyLink);
-      toast.success("PDF downloaded.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Download failed");
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold text-slate-900">{item.companyName}</h3>
-          {item.employeeName ? (
-            <p className="text-sm text-slate-600">{item.employeeName}</p>
-          ) : null}
-          {item.designation ? (
-            <p className="text-xs text-slate-500">{item.designation}</p>
-          ) : null}
-        </div>
-        <span
-          className={cn(
-            "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium",
-            uiStatusBadgeClass(item.uiStatus)
-          )}
-        >
-          {uiStatusLabel(item.uiStatus)}
-        </span>
-      </div>
-
-      {item.joiningDate && item.relievingDate ? (
-        <p className="mt-2 text-xs text-slate-500">
-          Tenure: {item.joiningDate} – {item.relievingDate}
-        </p>
-      ) : null}
-
-      {item.tokenExpiresAt && item.canCopyMagicLink ? (
-        <p className="mt-1 text-xs text-slate-500">
-          Link expires {new Date(item.tokenExpiresAt).toLocaleString()}
-        </p>
-      ) : null}
-
-      {item.hrFeedback &&
-      (item.uiStatus === "REVISIONS_REQUIRED" || item.uiStatus === "REJECTED") ? (
-        <p className="mt-2 line-clamp-3 rounded-md bg-amber-50 p-2 text-xs text-amber-950">
-          {item.hrFeedback}
-        </p>
-      ) : null}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {item.canEdit ? (
-          <Link
-            href={`/dashboard/drafts/edit/${item.caseId}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-md")}
-          >
-            <FileEdit className="mr-1.5 h-3.5 w-3.5" />
-            Edit & resubmit
-          </Link>
-        ) : null}
-
-        {item.canCopyMagicLink ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-md"
-            disabled={regenerate.isPending}
-            title="Creates a fresh review link and copies it. Any previous HR link for this case will stop working."
-            onClick={() => regenerate.mutate()}
-          >
-            {regenerate.isPending ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <ClipboardCopy className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            Copy HR review link
-          </Button>
-        ) : null}
-
-        {item.canViewIssued ? (
-          <Link
-            href={`/dashboard/issued/${item.caseId}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-md")}
-          >
-            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            View issued
-          </Link>
-        ) : null}
-
-        {item.canDownloadPdf ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-md"
-            disabled={downloadingId === item.caseId}
-            onClick={() => void onDownload()}
-          >
-            {downloadingId === item.caseId ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            Download PDF
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
+import { caseEditPayloadToFormValues } from "../utils/case-edit-payload-to-form";
+import { ExperienceJourneyFeed } from "./experience-journey-feed";
+import { ExperienceLetterDraftForm } from "./experience-letter-draft-form";
 
 export function ExperiencePageClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch, isFetching } = useCandidateExperienceQuery();
+
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetMode, setSheetMode] = useState<"create" | "resubmit">("create");
+  const [editCaseId, setEditCaseId] = useState<string | null>(null);
+  const [sheetView, setSheetView] = useState<"edit" | "preview">("edit");
+  const [formDirty, setFormDirty] = useState(false);
+
+  const openCreateSheet = useCallback(() => {
+    setSheetMode("create");
+    setEditCaseId(null);
+    setSheetView("edit");
+    setSheetOpen(true);
+  }, []);
+
+  const openEditSheet = useCallback((caseId: string) => {
+    setSheetMode("resubmit");
+    setEditCaseId(caseId);
+    setSheetView("edit");
+    setSheetOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const newQ = searchParams.get("new");
+    const editQ = searchParams.get("edit");
+    if (newQ === "1") {
+      openCreateSheet();
+      router.replace("/dashboard/experience", { scroll: false });
+    }
+    if (editQ) {
+      openEditSheet(editQ);
+      router.replace("/dashboard/experience", { scroll: false });
+    }
+  }, [searchParams, router, openCreateSheet, openEditSheet]);
+
+  const editQuery = useQuery({
+    queryKey: ["drafts", "case-edit", editCaseId],
+    queryFn: () => fetchCaseEditPayload(editCaseId!),
+    enabled: Boolean(sheetOpen && sheetMode === "resubmit" && editCaseId),
+  });
+
+  const handleSheetOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setSheetOpen(true);
+        return;
+      }
+      if (formDirty && typeof window !== "undefined" && !window.confirm("Discard your changes?")) {
+        return;
+      }
+      setSheetOpen(false);
+      setSheetMode("create");
+      setEditCaseId(null);
+      setSheetView("edit");
+      setFormDirty(false);
+    },
+    [formDirty]
+  );
+
+  const handleDraftSuccess = useCallback(() => {
+    setSheetOpen(false);
+    setFormDirty(false);
+    setSheetMode("create");
+    setEditCaseId(null);
+    setSheetView("edit");
+    void queryClient.invalidateQueries({ queryKey: ["candidate", "experience"] });
+  }, [queryClient]);
 
   if (isLoading && !data) {
     return (
@@ -226,23 +116,57 @@ export function ExperiencePageClient() {
     );
   }
 
-  const { summary, cases, timeline } = data;
+  const { summary, cases } = data;
   const total = summary.verifiedCredentialCount + summary.pendingCredentialCount;
   const verifiedRatio = total > 0 ? Math.round((summary.verifiedCredentialCount / total) * 100) : 0;
 
+  const showResubmitForm =
+    sheetMode === "resubmit" && editQuery.data && !editQuery.isLoading && !editQuery.isError;
+
+  const emptyIllustration = (
+    <div className="flex flex-col items-center gap-6 text-center">
+      <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+        <ClipboardList className="h-12 w-12" strokeWidth={1.25} aria-hidden />
+      </div>
+      <div className="max-w-md space-y-2">
+        <p className="text-heading-dashboard text-base">No journeys yet</p>
+        <p className="text-sm text-slate-600">
+          Use <strong className="font-medium text-slate-800">Create new draft</strong> above to
+          request your first verifiable experience letter from HR.
+        </p>
+      </div>
+      <Button
+        type="button"
+        className="rounded-md bg-brand-blue px-6 text-white hover:bg-brand-blue/90"
+        onClick={openCreateSheet}
+      >
+        Add new experience
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <DashboardPageHeader
           title="Experience"
-          description="Track every experience letter from draft through issuance. Copy HR links, resubmit after feedback, and download issued credentials."
+          description="Follow one journey from draft through HR review to a verified credential. In-progress steps stay at the top."
         />
-        {isFetching ? (
-          <span className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Updating…
-          </span>
-        ) : null}
+        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center lg:flex-col lg:items-end">
+          <Button
+            type="button"
+            className="rounded-md bg-brand-blue text-white hover:bg-brand-blue/90"
+            onClick={openCreateSheet}
+          >
+            Add new experience
+          </Button>
+          {isFetching ? (
+            <span className="flex items-center gap-1.5 text-xs text-slate-500">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Updating…
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -272,67 +196,95 @@ export function ExperiencePageClient() {
       ) : null}
 
       <DashboardSectionCard
-        title="Your cases"
-        description="Each row is one employer credential journey."
+        title="Experience journey"
+        description="Chronological feed: newest activity first. Green marks verified credentials; blue highlights work in progress."
       >
-        {cases.length === 0 ? (
-          <div className="flex flex-col items-start gap-3 py-6 text-center sm:items-center sm:text-center">
-            <p className="max-w-md text-sm text-slate-600">
-              You do not have any experience letters yet. Start a draft to request verification from
-              your HR team.
-            </p>
-            <Link
-              href="/dashboard/drafts/new"
-              className={cn(
-                buttonVariants({ variant: "default", size: "default" }),
-                "rounded-md bg-brand-blue hover:bg-brand-blue/90"
-              )}
-            >
-              Start experience letter draft
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {cases.map((c) => (
-              <CaseCard key={c.caseId} item={c} />
-            ))}
-          </div>
-        )}
+        <ExperienceJourneyFeed
+          cases={cases}
+          onOpenCreate={openCreateSheet}
+          onResumeEdit={openEditSheet}
+          emptyIllustration={emptyIllustration}
+        />
       </DashboardSectionCard>
 
-      {timeline.length > 0 ? (
-        <DashboardSectionCard
-          title="Timeline"
-          description="Verified and in-progress employment credentials."
+      <Sheet open={sheetOpen} onOpenChange={handleSheetOpenChange}>
+        <SheetContent
+          side="right"
+          className={cn(
+            "flex h-full max-h-[100dvh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+          )}
         >
-          <ul className="space-y-3">
-            {timeline.map((t) => (
-              <li
-                key={`${t.caseId}-${t.kind}`}
-                className="flex flex-wrap items-start gap-3 rounded-md border border-slate-100 bg-white p-3"
-              >
-                {t.kind === "verified" ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
-                ) : (
-                  <Badge variant="outline" className="shrink-0 border-amber-200 text-amber-900">
-                    Pending
-                  </Badge>
+          <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200 px-4 pb-4 pt-4 pr-14">
+            <SheetHeader className="space-y-1 p-0">
+              <SheetTitle>
+                {sheetMode === "create" ? "New experience letter" : "Update your draft"}
+              </SheetTitle>
+              <SheetDescription>
+                {sheetMode === "create"
+                  ? "Complete the form and submit to generate an HR review link."
+                  : "Address HR feedback, confirm the HR email, and resubmit for review."}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={sheetView === "edit" ? "default" : "outline"}
+                className={cn(
+                  "rounded-md",
+                  sheetView === "edit" && "bg-brand-blue hover:bg-brand-blue/90"
                 )}
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-slate-900">{t.companyName}</p>
-                  <p className="text-sm text-slate-600">{t.employeeName}</p>
-                  <p className="text-xs text-slate-500">{t.tenureLabel}</p>
-                  {t.issuedAt ? (
-                    <p className="mt-1 text-xs text-slate-400">
-                      Issued {new Date(t.issuedAt).toLocaleDateString()}
-                    </p>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </DashboardSectionCard>
-      ) : null}
+                onClick={() => setSheetView("edit")}
+              >
+                Edit
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={sheetView === "preview" ? "default" : "outline"}
+                className={cn(
+                  "rounded-md",
+                  sheetView === "preview" && "bg-brand-blue hover:bg-brand-blue/90"
+                )}
+                onClick={() => setSheetView("preview")}
+              >
+                Preview
+              </Button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            {sheetMode === "resubmit" && editQuery.isLoading ? (
+              <div className="flex items-center gap-2 py-8 text-sm text-slate-600">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading draft…
+              </div>
+            ) : null}
+            {sheetMode === "resubmit" && editQuery.isError ? (
+              <p className="py-6 text-sm text-red-600">
+                Could not load this draft. It may no longer be open for editing.
+              </p>
+            ) : null}
+            {(sheetMode === "create" || showResubmitForm) && (
+              <ExperienceLetterDraftForm
+                key={sheetMode === "create" ? "create" : editCaseId ?? "edit"}
+                layout="sheet"
+                sheetView={sheetView}
+                mode={sheetMode}
+                caseId={sheetMode === "resubmit" ? editCaseId ?? undefined : undefined}
+                initialValues={
+                  sheetMode === "resubmit" && editQuery.data
+                    ? caseEditPayloadToFormValues(editQuery.data)
+                    : null
+                }
+                hrFeedback={sheetMode === "resubmit" ? editQuery.data?.hrFeedback ?? null : null}
+                onSuccess={handleDraftSuccess}
+                onDirtyChange={setFormDirty}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

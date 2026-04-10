@@ -45,7 +45,7 @@ export function CandidateDashboard() {
       >
         <div className="flex flex-col gap-3">
           <p>DPDP-aligned selective disclosure keeps you in control of who sees what.</p>
-          <Link href="/dashboard/drafts/new">
+          <Link href="/dashboard/experience?new=1">
             <Button className="rounded-md bg-brand-blue hover:bg-brand-blue/90">
               Start Experience Letter Draft
             </Button>

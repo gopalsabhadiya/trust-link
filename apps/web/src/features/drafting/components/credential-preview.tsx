@@ -1,17 +1,20 @@
 "use client";
 
-import type { ExperienceLetterInput } from "@trustlink/shared";
+import type { ExperienceLetterInput, IExperienceLetter } from "@trustlink/shared";
 
-export function CredentialPreview({ value }: { value: ExperienceLetterInput }) {
+export function CredentialPreview({ value }: { value: IExperienceLetter | ExperienceLetterInput }) {
   const {
     employeeName,
     designation,
     joiningDate,
     relievingDate,
     keyAchievements,
+    awards = [],
     companyName,
     hrSignatoryName,
   } = value;
+
+  const awardsList = awards.filter((a) => a.trim().length > 0);
 
   return (
     <div className="relative mx-auto w-full max-w-[820px] overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl">
@@ -54,6 +57,19 @@ export function CredentialPreview({ value }: { value: ExperienceLetterInput }) {
               ))}
             </ul>
           </section>
+
+          {awardsList.length > 0 ? (
+            <section className="mt-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+                Notable Awards
+              </h3>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-[15px] font-normal normal-case tracking-normal text-slate-800">
+                {awardsList.map((item, idx) => (
+                  <li key={idx}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           <p className="mt-6">
             We appreciate the employee&apos;s contribution and wish them success in future

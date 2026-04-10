@@ -6,7 +6,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   Building2,
   ClipboardList,
-  FileText,
   LayoutDashboard,
   Link2,
   Settings,
@@ -24,10 +23,7 @@ const BASE_NAV: { href: string; label: string; icon: LucideIcon }[] = [
 ];
 
 const ROLE_EXTRA: Record<UserRole, { href: string; label: string; icon: LucideIcon }[]> = {
-  CANDIDATE: [
-    { href: "/dashboard/experience", label: "Experience", icon: ClipboardList },
-    { href: "/dashboard/drafts/new", label: "Draft letter", icon: FileText },
-  ],
+  CANDIDATE: [{ href: "/dashboard/experience", label: "Experience", icon: ClipboardList }],
   RECRUITER: [{ href: "#", label: "Candidate search", icon: UserSearch }],
   HR: [{ href: "#", label: "Team metrics", icon: Building2 }],
 };
@@ -76,12 +72,7 @@ export function DashboardSidebar({
       })}
       {expanded &&
         extra.map(({ href, label, icon: Icon }) => {
-          const roleLinkActive =
-            href !== "#" &&
-            (pathname === href ||
-              (href === "/dashboard/drafts/new" &&
-                (pathname === "/dashboard/drafts/new" ||
-                  pathname.startsWith("/dashboard/drafts/edit/"))));
+          const roleLinkActive = href !== "#" && pathname === href;
           return (
             <Link
               key={label}

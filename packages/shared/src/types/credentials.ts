@@ -4,6 +4,8 @@ export interface IExperienceLetter {
   joiningDate: string;
   relievingDate: string;
   keyAchievements: string[];
+  /** Optional honors; omit or use empty array when none. */
+  awards?: string[];
   companyName: string;
   hrSignatoryName: string;
 }
