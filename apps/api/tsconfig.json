@@ -4,8 +4,8 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "paths": {
-      "@trustlink/shared": ["../../packages/shared/src"],
-      "@trustlink/shared/*": ["../../packages/shared/src/*"]
+      "@trustlink/shared": ["../../packages/shared/dist"],
+      "@trustlink/shared/*": ["../../packages/shared/dist/*"]
     }
   },
   "include": ["src/**/*"],

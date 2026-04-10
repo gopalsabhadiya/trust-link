@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { authApi, type LoginPayload, type RegisterPayload } from "../api/auth-api";
 
 export function useAuth() {
@@ -14,13 +15,18 @@ export function useAuth() {
     setError(null);
     try {
       const { data } = await authApi.login(payload);
-      if (data.success) {
+      if (data.success && data.data) {
+        toast.success("Signed in successfully.");
         router.push("/dashboard");
       } else {
-        setError(data.error ?? "Login failed");
+        const msg = data.error ?? "Login failed";
+        setError(msg);
+        toast.error(msg);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const msg = err instanceof Error ? err.message : "Login failed";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -31,13 +37,18 @@ export function useAuth() {
     setError(null);
     try {
       const { data } = await authApi.register(payload);
-      if (data.success) {
+      if (data.success && data.data) {
+        toast.success("Account created. You're signed in.");
         router.push("/dashboard");
       } else {
-        setError(data.error ?? "Registration failed");
+        const msg = data.error ?? "Registration failed";
+        setError(msg);
+        toast.error(msg);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const msg = err instanceof Error ? err.message : "Registration failed";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

@@ -1,16 +1,39 @@
 export type UserRole = "HR" | "CANDIDATE" | "RECRUITER";
 
+export type AuthProvider = "MANUAL" | "GOOGLE" | "LINKEDIN";
+
 export interface ApiResponse<T> {
   success: boolean;
-  data: T;
+  /** Present when `success` is true; otherwise typically `null`. */
+  data: T | null;
   error: string | null;
 }
 
+/** Full user shape (includes sensitive fields only on server / never in API responses). */
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  /** Public avatar URL when set (OAuth or uploaded). */
+  profilePicture: string | null;
+  /** Unread in-app notifications (server-computed; 0 when none). */
+  notificationCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Safe user payload returned by the API (no passwordHash). */
+export interface UserDTO {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  authProvider: AuthProvider;
+  consentGiven: boolean;
+  consentTimestamp: Date | null;
+  profilePicture: string | null;
+  notificationCount: number;
   createdAt: Date;
   updatedAt: Date;
 }

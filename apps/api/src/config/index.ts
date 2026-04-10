@@ -1,2 +1,6 @@
-export { env } from "./env";
+export {
+  env,
+  isGoogleOAuthConfigured,
+  isLinkedInOAuthConfigured,
+} from "./env";
 export { prisma } from "./database";

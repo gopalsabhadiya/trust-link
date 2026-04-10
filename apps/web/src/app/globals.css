@@ -32,10 +32,18 @@
   --color-card: #ffffff;
   --color-card-foreground: #1e293b;
 
-  /* Named brand scale (explicit utilities) */
+  /* Named brand scale (explicit utilities) — single source for UI */
   --color-brand-blue: #2563eb;
   --color-brand-green: #10b981;
   --color-brand-navy: #1e293b;
+  /* Active nav / avatar tint — rgba mix of brand blue on white (not Tailwind blue-50) */
+  --color-brand-blue-subtle-bg: rgb(37 99 235 / 0.09);
+  --color-brand-blue-subtle-border: rgb(37 99 235 / 0.18);
+  /* Verified / success surfaces */
+  --color-brand-green-subtle-bg: rgb(16 185 129 / 0.12);
+  --color-brand-green-subtle-border: rgb(16 185 129 / 0.22);
+  /* Dashboard metric track */
+  --color-dashboard-progress-track: #e2e8f0;
 
   /* Success / verified only — per brand rules */
   --color-verified: #10b981;
@@ -43,6 +51,21 @@
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --radius: 0.5rem;
+}
+
+@layer utilities {
+  .bg-brand-blue-subtle {
+    background-color: var(--color-brand-blue-subtle-bg);
+  }
+  .border-brand-blue-subtle {
+    border-color: var(--color-brand-blue-subtle-border);
+  }
+  .text-heading-dashboard {
+    @apply font-semibold tracking-tight text-slate-800;
+  }
+  .text-body-dashboard-muted {
+    @apply text-sm text-slate-600;
+  }
 }
 
 @layer base {
